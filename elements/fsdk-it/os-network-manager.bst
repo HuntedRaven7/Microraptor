@@ -1,4 +1,4 @@
-kind: manual
+kind: import
 description: |
   Install Network Manager configuration and enablement into the target OS image.
 
