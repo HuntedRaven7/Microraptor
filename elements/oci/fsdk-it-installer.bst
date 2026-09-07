@@ -184,7 +184,7 @@ config:
       [Service]
         ExecStart=
         ExecStart=/usr/bin/fsdk-it-sysinstall
-        EOF
+      EOF
 
     # -- Step 2: Wire default.target -> system-install.target ------------
     - |
