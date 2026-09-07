@@ -6,8 +6,6 @@ sources:
   track: gnome-50
 # renovate: datasource=git-refs depName=https://gitlab.gnome.org/GNOME/gnome-build-meta.git
   ref: 50.4-0-g8524013485013dd5616bfff02dbeab274d5a4553
-- kind: patch_queue
-  path: patches/gnome-build-meta
 
 config:
   options:
