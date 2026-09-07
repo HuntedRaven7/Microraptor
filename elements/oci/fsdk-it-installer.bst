@@ -28,7 +28,11 @@ description: |
        (ESP with UKI + data partition with embedded DDI payload)
     7. Compress final disk as .raw.zst + SHA256SUMS for GitHub Releases
 
-build-depends:
+sources:
+  - kind: local
+    path: files/os/installer/80-dhcp.network
+    directory: dhcp-config
+
   # Toolchain for assembly
   - base/base-stack.bst
   - freedesktop-sdk.bst:components/dracut.bst
@@ -187,8 +191,7 @@ config:
       EOF
       # DHCP on all ethernet interfaces in the installer live environment
       mkdir -p /layer/usr/lib/systemd/network
-      printf '%s\n' '[Match]' 'Name=en* eth* ens* enp*' '' '[Network]' 'DHCP=yes' \
-        > /layer/usr/lib/systemd/network/80-dhcp.network
+      cp /dhcp-config/80-dhcp.network /layer/usr/lib/systemd/network/80-dhcp.network
     # ── Step 2: Wire default.target -> system-install.target ────────────
     - |
       set -eu
