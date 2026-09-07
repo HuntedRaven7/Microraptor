@@ -6,8 +6,6 @@ sources:
   track: freedesktop-sdk-26.08*
 # renovate: datasource=git-refs depName=https://gitlab.com/freedesktop-sdk/freedesktop-sdk.git
   ref: freedesktop-sdk-26.08.0-0-gdb97cce32cecadc7a3e98f06d557ebfa6ba9ad46
-- kind: patch_queue
-  path: patches/freedesktop-sdk
 
 # FSDK 26.08 dropped components/systemd-base.bst, and gnome-build-meta
 # (gnome-50 / master) is still pinned to FSDK 25.08 and still depends on it,
