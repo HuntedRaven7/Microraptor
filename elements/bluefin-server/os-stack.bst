@@ -50,12 +50,11 @@ depends:
   - freedesktop-sdk.bst:components/podman.bst
 
   # Network Manager configuration and enablement
-  - freedesktop-sdk.bst:components/network-manager.bst
+  - freedesktop-sdk.bst:components/networkmanager.bst
   - fsdk-it/os-network-manager.bst
 
-  # Tailscale mesh VPN
-  - freedesktop-sdk.bst:components/tailscale.bst
-  - fsdk-it/os-tailscale.bst
+  # Tailscale mesh VPN (not in FSDK; custom manual element)
+  - fsdk-it/tailscale.bst
 
   # System Management Justfile
   - fsdk-it/os-justfile.bst

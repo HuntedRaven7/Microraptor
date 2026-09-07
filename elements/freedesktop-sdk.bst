@@ -22,19 +22,15 @@ options:
 (?):
 
 - arch == 'x86_64':
-
   bootstrap_build_arch: 'x86_64'
 
 - arch == 'aarch64':
-
   bootstrap_build_arch: 'aarch64'
 
 - arch == "ppc64le":
-
   bootstrap_build_arch: "ppc64le"
 
 - arch == "riscv64":
-
   bootstrap_build_arch: "x86_64"
 
 # FSDK 26.08 dropped components/systemd-base.bst, and gnome-build-meta

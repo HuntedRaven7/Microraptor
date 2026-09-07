@@ -59,11 +59,10 @@ def test_quadlets_yml_has_versions():
 def test_os_stack_includes_tailscale():
     stack = (ROOT / "elements" / "bluefin-server" / "os-stack.bst").read_text()
     assert "tailscale.bst" in stack, "os-stack missing tailscale.bst"
-    assert "os-tailscale.bst" in stack, "os-stack missing os-tailscale.bst"
 
 
-def test_tailscale_config_exists():
-    assert (ROOT / "files" / "os" / "tailscale" / "tailscaled.conf").exists()
+def test_tailscale_element_exists():
+    assert (ROOT / "elements" / "bluefin-server" / "tailscale.bst").exists()
 
 
 def main():
@@ -77,7 +76,7 @@ def main():
         test_os_stack_includes_containers,
         test_quadlets_yml_has_versions,
         test_os_stack_includes_tailscale,
-        test_tailscale_config_exists,
+        test_tailscale_element_exists,
     ]
     failed = 0
     for test in tests:
