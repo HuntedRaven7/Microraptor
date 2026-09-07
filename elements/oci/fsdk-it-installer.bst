@@ -33,6 +33,7 @@ sources:
     path: files/os/installer/80-dhcp.network
     directory: dhcp-config
 
+build-depends:
   # Toolchain for assembly
   - base/base-stack.bst
   - freedesktop-sdk.bst:components/dracut.bst
