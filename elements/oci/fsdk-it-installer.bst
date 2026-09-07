@@ -187,11 +187,7 @@ config:
       EOF
       # DHCP on all ethernet interfaces in the installer live environment
       mkdir -p /layer/usr/lib/systemd/network
-      echo '[Match]' > /layer/usr/lib/systemd/network/80-dhcp.network
-      echo 'Name=en* eth* ens* enp*' >> /layer/usr/lib/systemd/network/80-dhcp.network
-      echo '' >> /layer/usr/lib/systemd/network/80-dhcp.network
-      echo '[Network]' >> /layer/usr/lib/systemd/network/80-dhcp.network
-      echo 'DHCP=yes' >> /layer/usr/lib/systemd/network/80-dhcp.network
+      printf '%s\n' '[Match]' 'Name=en* eth* ens* enp*' '' '[Network]' 'DHCP=yes' > /layer/usr/lib/systemd/network/80-dhcp.network
     # ── Step 2: Wire default.target -> system-install.target ────────────
     - |
       set -eu
