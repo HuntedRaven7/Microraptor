@@ -28,11 +28,6 @@ description: |
        (ESP with UKI + data partition with embedded DDI payload)
     7. Compress final disk as .raw.zst + SHA256SUMS for GitHub Releases
 
-sources:
-  - kind: local
-    path: files/os/installer/80-dhcp.network
-    directory: dhcp-config
-
 build-depends:
   # Toolchain for assembly
   - base/base-stack.bst
@@ -192,7 +187,11 @@ config:
       EOF
       # DHCP on all ethernet interfaces in the installer live environment
       mkdir -p /layer/usr/lib/systemd/network
-      cp /dhcp-config/80-dhcp.network /layer/usr/lib/systemd/network/80-dhcp.network
+      echo '[Match]' > /layer/usr/lib/systemd/network/80-dhcp.network
+      echo 'Name=en* eth* ens* enp*' >> /layer/usr/lib/systemd/network/80-dhcp.network
+      echo '' >> /layer/usr/lib/systemd/network/80-dhcp.network
+      echo '[Network]' >> /layer/usr/lib/systemd/network/80-dhcp.network
+      echo 'DHCP=yes' >> /layer/usr/lib/systemd/network/80-dhcp.network
     # ── Step 2: Wire default.target -> system-install.target ────────────
     - |
       set -eu
