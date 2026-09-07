@@ -20,7 +20,7 @@ fi
 echo "PASS: freedesktop-sdk.bst exists"
 
 # Test 3: os-stack.bst includes network-manager
-if ! grep -q 'network-manager.bst' "$ROOT/elements/bluefin-server/os-stack.bst"; then
+if ! grep -q 'network-manager.bst' "$ROOT/elements/fsdk-it/os-stack.bst"; then
   echo "FAIL: os-stack.bst missing network-manager.bst"
   exit 1
 fi

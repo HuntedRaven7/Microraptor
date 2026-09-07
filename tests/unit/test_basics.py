@@ -23,7 +23,7 @@ def test_freedesktop_sdk_ref_matches():
 
 
 def test_os_stack_has_network_manager():
-    stack = (ROOT / "elements" / "bluefin-server" / "os-stack.bst").read_text()
+    stack = (ROOT / "elements" / "fsdk-it" / "os-stack.bst").read_text()
     assert "network-manager.bst" in stack, "os-stack missing network-manager.bst"
     assert "os-network-manager.bst" in stack, "os-stack missing os-network-manager.bst"
 
@@ -45,7 +45,7 @@ def test_quadlets_present():
 
 
 def test_os_stack_includes_containers():
-    stack = (ROOT / "elements" / "bluefin-server" / "os-stack.bst").read_text()
+    stack = (ROOT / "elements" / "fsdk-it" / "os-stack.bst").read_text()
     assert "os-containers.bst" in stack, "os-stack missing os-containers.bst"
 
 
@@ -57,12 +57,12 @@ def test_quadlets_yml_has_versions():
 
 
 def test_os_stack_includes_tailscale():
-    stack = (ROOT / "elements" / "bluefin-server" / "os-stack.bst").read_text()
+    stack = (ROOT / "elements" / "fsdk-it" / "os-stack.bst").read_text()
     assert "tailscale.bst" in stack, "os-stack missing tailscale.bst"
 
 
 def test_tailscale_element_exists():
-    assert (ROOT / "elements" / "bluefin-server" / "tailscale.bst").exists()
+    assert (ROOT / "elements" / "fsdk-it" / "tailscale.bst").exists()
 
 
 def main():
