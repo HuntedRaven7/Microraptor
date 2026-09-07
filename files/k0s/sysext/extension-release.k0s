@@ -1,0 +1,8 @@
+NAME=k0s
+VERSION_ID=%{k0s-version}
+ID=k0s
+ID_LIKE=k0s
+VERSION=%{k0s-version}
+PRETTY_NAME="k0s %{k0s-version}"
+HOME_URL="https://k0sproject.io"
+BUG_REPORT_URL="https://github.com/k0sproject/k0s/issues"

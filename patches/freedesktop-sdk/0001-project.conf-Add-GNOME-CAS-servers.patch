@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bluefin Server <bluefin@projectbluefin.io>
+Date: Sat, 07 Sep 2026 00:00:00 +0000
+Subject: [PATCH] project.conf: Add GNOME CAS servers
+
+Add GNOME BuildStream artifact and source caches to the default
+project configuration.
+
+diff --git a/project.conf b/project.conf
+index 0000000..0000000 100644
+--- a/project.conf
++++ b/project.conf
+@@ -29,6 +29,12 @@ variables:
+ 
+ artifacts:
+   - url: https://gbm.gnome.org:11003
++    connection-config:
++      keepalive-time: 180
++      retry-limit: 5
++      retry-delay: 500
++      request-timeout: 180
++  - url: https://cache.projectbluefin.io:11001
++    connection-config:
++      keepalive-time: 180
++      retry-limit: 5
++      retry-delay: 500
++      request-timeout: 180
++source-caches:
++  - url: https://gbm.gnome.org:11003
++    connection-config:
++      keepalive-time: 180
++      retry-limit: 5
++      retry-delay: 500
++      request-timeout: 180
++  - url: https://cache.projectbluefin.io:11001
++    connection-config:
++      keepalive-time: 180
++      retry-limit: 5
++      retry-delay: 500
++      request-timeout: 180

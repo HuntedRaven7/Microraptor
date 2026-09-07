@@ -1,0 +1,84 @@
+name: Manage Quadlet Versions
+
+on:
+  schedule:
+    - cron: "0 0 * * 0"  # Weekly on Sunday
+  workflow_dispatch:
+    inputs:
+      pihole_version:
+        description: "Pi-hole image tag (e.g. 2024.07)"
+        required: false
+        default: ""
+      hermes_version:
+        description: "Hermes agent image tag"
+        required: false
+        default: ""
+      glance_version:
+        description: "Glance image tag"
+        required: false
+        default: ""
+      vaultwarden_version:
+        description: "Vaultwarden image tag"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-quadlets:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@82c7e7d8a3d36cacba4c84d5b97e980d52b88907 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Update quadlet versions
+        env:
+          PIHOLE_VERSION: ${{ github.event.inputs.pihole_version }}
+          HERMES_VERSION: ${{ github.event.inputs.hermes_version }}
+          GLANCE_VERSION: ${{ github.event.inputs.glance_version }}
+          VAULTWARDEN_VERSION: ${{ github.event.inputs.vaultwarden_version }}
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/update-quadlets.py \
+            --quadlets-file include/quadlets.yml \
+            --templates-dir files/os/containers/systemd/templates \
+            --output-dir files/os/containers/systemd \
+            ${PIHOLE_VERSION:+--pihole "$PIHOLE_VERSION"} \
+            ${HERMES_VERSION:+--hermes "$HERMES_VERSION"} \
+            ${GLANCE_VERSION:+--glance "$GLANCE_VERSION"} \
+            ${VAULTWARDEN_VERSION:+--vaultwarden "$VAULTWARDEN_VERSION"}
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create pull request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add include/quadlets.yml files/os/containers/systemd/*.container
+          git commit -m "chore: update quadlet image versions" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+          git push origin HEAD:quadlet-versions-update || true
+          gh pr create \
+            --title "chore: update quadlet image versions" \
+            --body "Automated quadlet version update" \
+            --base main \
+            --head quadlet-versions-update || true

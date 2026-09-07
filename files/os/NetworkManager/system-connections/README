@@ -1,0 +1,3 @@
+# Network Manager system-connections directory
+# Connection profiles are typically created dynamically at runtime.
+# Place static .nmconnection files here for pre-provisioned networks.

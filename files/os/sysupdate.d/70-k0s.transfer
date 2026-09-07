@@ -1,0 +1,3 @@
+[Transfer]
+Title=k0s Kubernetes sysext
+MatchPattern=k0s-*.raw.zst

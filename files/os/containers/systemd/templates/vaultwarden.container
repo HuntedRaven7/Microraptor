@@ -1,0 +1,20 @@
+[Unit]
+Description=Vaultwarden - Bitwarden-compatible password manager
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image={{VAULTWARDEN_IMAGE}}
+ContainerName=vaultwarden
+Publish=8080/tcp
+Volume=vaultwarden-data:/data
+Environment=TZ=%{CONTAINER_TZ:-UTC}
+Environment=DOMAIN=http://localhost:8080
+Exec=/usr/bin/podman systemd uproot %u /data:/data:Z
+ExecStop=/usr/bin/podman stop vaultwarden
+ExecStopPost=/usr/bin/podman rm vaultwarden
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,158 @@
+name: Build DDI artifacts
+
+on:
+  pull_request
+  push:
+    branches: [main]
+  workflow_dispatch
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  track-refs:
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'renovate/')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+
+      - name: Set up just
+        uses: taiki-e/install-action@7b8d4719ee4aaa279bdf55df38dacb9ebfe12a6c
+        with:
+          tool: just
+
+      - name: Track and Resolve BuildStream Refs
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          just bst source track freedesktop-sdk.bst || true
+          just bst source track gnome-build-meta.bst || true
+          if ! git diff --exit-code; then
+            git add elements/
+            git commit -m "chore: resolve BuildStream junction refs to git-describe format" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+            git push origin "HEAD:${HEAD_REF}"
+          fi
+
+  build:
+    needs: track-refs
+    if: ${{ !failure() && !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+
+      - name: Set up just
+        uses: taiki-e/install-action@7b8d4719ee4aaa279bdf55df38dacb9ebfe12a6c
+        with:
+          tool: just
+
+      - name: Validate Element Graph
+        run: just validate
+
+      - name: Set up runner disk space
+        run: |
+          set -euo pipefail
+          sudo mkdir -p /mnt/podman /mnt/buildstream
+          sudo chown -R "$USER:$USER" /mnt/podman /mnt/buildstream
+          mkdir -p ~/.config/containers
+          cat > ~/.config/containers/storage.conf <<EOF
+          [storage]
+          driver = "overlay"
+          runroot = "/run/user/1001"
+          graphroot = "/mnt/podman"
+          EOF
+          mkdir -p ~/.cache
+          ln -sf /mnt/buildstream ~/.cache/buildstream
+
+      - name: Build and export DDI OS image
+        run: |
+          just build-ddi
+          just export-ddi
+
+      - name: Build and export live installer & target UKI
+        run: |
+          just build-installer
+          just export-installer
+
+      - name: Build and export k0s systemd-sysext
+        run: |
+          just build-sysext
+          just export-sysext
+
+      - name: Sign release SHA256SUMS manifest
+        if: github.ref == 'refs/heads/main'
+        env:
+          SYSUPDATE_SIGNING_KEY: ${{ secrets.SYSUPDATE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist/release
+          cp dist/fsdk-it-installer-*.raw.zst dist/fsdk-it-*.efi dist/release/
+          cp dist/ddi/fsdk-it-ddi-*.raw.zst dist/release/
+          cp dist/sysext/k0s-*.raw.zst dist/release/
+          (cd dist/release && sha256sum --binary -- * > SHA256SUMS)
+          GNUPGHOME=$(mktemp -d)
+          export GNUPGHOME
+          trap 'rm -rf "$GNUPGHOME"' EXIT
+          echo "$SYSUPDATE_SIGNING_KEY" | gpg --batch --import
+          gpg --batch --yes --detach-sign --armor -o dist/release/SHA256SUMS.gpg dist/release/SHA256SUMS
+
+      - name: Resolve release version
+        if: github.ref == 'refs/heads/main'
+        id: version
+        run: echo "version=$(just version)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release assets artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: release-assets
+          path: dist/release/
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: release-assets
+          path: dist/release
+
+      - name: Upload assets to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          V="${{ needs.build.outputs.version }}"
+          TAG="installer-v${V}"
+          echo "Uploading release assets for tag: ${TAG}"
+          gh release create "${TAG}" --title "fsdk-it v${V}" --notes "Automated release triggered by Renovate dependency update on main" --prerelease=false || true
+          gh release upload "${TAG}" \
+            dist/release/* \
+            --clobber

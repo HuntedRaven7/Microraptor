@@ -1,0 +1,3 @@
+[Transfer]
+Title=fsdk-it OS image
+MatchPattern=fsdk-it-ddi-*.raw.zst

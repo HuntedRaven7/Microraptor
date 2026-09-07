@@ -1,0 +1,26 @@
+repos:
+  - repo: local
+    hooks:
+      - id: docs-checks
+        name: Documentation quality checks
+        entry: python .github/scripts/docs-checks.py
+        language: system
+        pass_filenames: false
+        files: ^(docs/|AGENTS\.md|README\.md|CONTRIBUTING\.md|\.github/scripts/docs-checks\.py)$
+      - id: actionlint
+        name: Lint GitHub Actions workflows
+        entry: actionlint
+        language: system
+        files: ^\.github/workflows/.*\.(yml|yaml)$
+      - id: check-release-version
+        name: release-version matches pinned FSDK point release
+        entry: python .github/scripts/check-release-version.py
+        language: system
+        pass_filenames: false
+        files: ^(project\.conf|elements/freedesktop-sdk\.bst|\.github/scripts/check-release-version\.py)$
+      - id: check-k0s-version
+        name: k0s version derived from include/k0s.yml, not restated
+        entry: python .github/scripts/check-k0s-version.py
+        language: system
+        pass_filenames: false
+        files: ^(include/k0s\.yml|elements/k0s/k0s-bin\.bst|elements/oci/k0s-sysext\.bst|files/k0s/sysext/extension-release\.k0s|files/os/sysupdate\.d/70-k0s\.transfer|\.github/scripts/check-k0s-version\.py)$

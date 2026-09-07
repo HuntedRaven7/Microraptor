@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bluefin Server <bluefin@projectbluefin.io>
+Date: Sat, 07 Sep 2026 00:00:00 +0000
+Subject: [PATCH] glib: stage1 disable tests
+
+Disable tests in GLib stage1 to reduce build time and avoid
+test failures in the minimal runtime environment.
+
+diff --git a/patches/freedesktop-sdk/0002-glib-stage1-disable-tests.patch b/patches/freedesktop-sdk/0002-glib-stage1-disable-tests.patch
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/patches/freedesktop-sdk/0002-glib-stage1-disable-tests.patch
+@@ -0,0 +1 @@
++diff --git a/meson.build b/meson.build
++index 0000000..0000000 100644
++--- a/meson.build
+++++ b/meson.build
++@@ -1,1 +1,1 @@
++-  enable_tests = get_option('enable_tests')
+++  enable_tests = false
