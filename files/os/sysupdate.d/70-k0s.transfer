@@ -1,3 +1,14 @@
 [Transfer]
 Title=k0s Kubernetes sysext
-MatchPattern=k0s-*.raw.zst
+
+[Source]
+Type=url-file
+Path=https://github.com/HuntedRaven7/fsdk-it/releases/latest/download/
+MatchPattern=k0s-@v.raw.zst
+
+[Target]
+Type=regular-file
+Path=/var/lib/extensions
+MatchPattern=k0s-@v.raw
+CurrentSymlink=k0s.raw
+Mode=0644

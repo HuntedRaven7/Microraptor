@@ -1,5 +1,4 @@
 NAME=k0s
-VERSION_ID=%{k0s-version}
 ID=k0s
 ID_LIKE=k0s
 VERSION=%{k0s-version}

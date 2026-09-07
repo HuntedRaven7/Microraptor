@@ -1,3 +1,14 @@
 [Transfer]
 Title=fsdk-it OS image
-MatchPattern=fsdk-it-ddi-*.raw.zst
+
+[Source]
+Type=url-file
+Path=https://github.com/HuntedRaven7/fsdk-it/releases/latest/download/
+MatchPattern=fsdk-it-ddi-@v.raw.zst
+
+[Target]
+Type=regular-file
+Path=/var/lib/extensions
+MatchPattern=fsdk-it-ddi-@v.raw
+CurrentSymlink=fsdk-it-ddi.raw
+Mode=0644
