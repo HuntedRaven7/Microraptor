@@ -185,9 +185,9 @@ config:
       ExecStart=
       ExecStart=/usr/bin/fsdk-it-sysinstall
       EOF
-      # DHCP on all ethernet interfaces
+      # DHCP on all ethernet interfaces in the installer live environment
       mkdir -p /layer/usr/lib/systemd/network
-      printf '[Match]\nName=en* eth* ens* enp*\n\n[Network]\nDHCP=yes\n' \
+      printf '%s\n' '[Match]' 'Name=en* eth* ens* enp*' '' '[Network]' 'DHCP=yes' \
         > /layer/usr/lib/systemd/network/80-dhcp.network
     # ── Step 2: Wire default.target -> system-install.target ────────────
     - |
