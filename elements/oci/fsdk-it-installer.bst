@@ -176,7 +176,13 @@ config:
       chmod +x /layer/usr/bin/fsdk-it-sysinstall
 
       mkdir -p /layer/etc/systemd/system/systemd-sysinstall.service.d
-      printf '%s\n' '[Unit]' 'SuccessAction=poweroff' 'FailureAction=poweroff' '' '[Service]' 'ExecStart=' 'ExecStart=/usr/bin/fsdk-it-sysinstall' > /layer/etc/systemd/system/systemd-sysinstall.service.d/override.conf
+      echo '[Unit]' > /layer/etc/systemd/system/systemd-sysinstall.service.d/override.conf
+      echo 'SuccessAction=poweroff' >> /layer/etc/systemd/system/systemd-sysinstall.service.d/override.conf
+      echo 'FailureAction=poweroff' >> /layer/etc/systemd/system/systemd-sysinstall.service.d/override.conf
+      echo '' >> /layer/etc/systemd/system/systemd-sysinstall.service.d/override.conf
+      echo '[Service]' >> /layer/etc/systemd/system/systemd-sysinstall.service.d/override.conf
+      echo 'ExecStart=' >> /layer/etc/systemd/system/systemd-sysinstall.service.d/override.conf
+      echo 'ExecStart=/usr/bin/fsdk-it-sysinstall' >> /layer/etc/systemd/system/systemd-sysinstall.service.d/override.conf
 
     # -- Step 2: Wire default.target -> system-install.target ------------
     - |
