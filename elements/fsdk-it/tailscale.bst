@@ -22,6 +22,6 @@ config:
       mkdir -p "%{install-root}/usr/bin"
       mkdir -p "%{install-root}/etc/tailscale"
       export TAILSCALE_URL="${URL}"
-      python3 download-tailscale.py
+      sh download-tailscale.sh
       install -m 0755 /tmp/tailscale "%{install-root}/usr/bin/tailscale"
       install -m 0755 /tmp/tailscaled "%{install-root}/usr/bin/tailscaled"
