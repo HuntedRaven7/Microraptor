@@ -9,16 +9,19 @@ build-depends:
   - base/base-stack.bst
 
 sources:
-  - kind: remote
-    url: https://github.com/tailscale/tailscale/releases/download/v1.80.0/tailscale_1.80.0_amd64.tgz
-    ref: 3a4e7b3c9d2e1f5a6b8c0d4e6f8a2b4c6d8e0f2a4b6c8d0e2f4a6b8c0d2e4f6a
+  - kind: local
+    path: files/os/tailscale
 
 config:
   install-commands:
     - |
       set -euo pipefail
+      TAILSCALE_VERSION="1.102.3"
+      ARCH="amd64"
+      URL="https://github.com/tailscale/tailscale/releases/download/v${TAILSCALE_VERSION}/tailscale_${TAILSCALE_VERSION}_${ARCH}.tgz"
       mkdir -p "%{install-root}/usr/bin"
       mkdir -p "%{install-root}/etc/tailscale"
-      tar -xzf tailscale_*.tgz
-      install -m 0755 tailscale "%{install-root}/usr/bin/tailscale"
-      install -m 0755 tailscaled "%{install-root}/usr/bin/tailscaled"
+      curl -fsSL "${URL}" -o /tmp/tailscale.tgz
+      tar -xzf /tmp/tailscale.tgz -C /tmp
+      install -m 0755 /tmp/tailscale "%{install-root}/usr/bin/tailscale"
+      install -m 0755 /tmp/tailscaled "%{install-root}/usr/bin/tailscaled"
