@@ -237,7 +237,8 @@ config:
     # find . from /layer gives paths like ./usr/bin/... which is exactly
     # the newc format the kernel expects. The kernel strips the leading dot.
     - |
-      set -eu
+      set -eux
+      export PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
       # Clean up bloat from /layer before packing (reduces initrd size!)
       rm -rf /layer/usr/lib/debug /layer/usr/share/doc /layer/usr/share/man /layer/usr/include
