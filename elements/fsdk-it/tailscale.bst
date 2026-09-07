@@ -3,7 +3,7 @@ description: |
   Install the Tailscale client binary into the target OS image.
 
   Tailscale is not available as an FSDK component, so we download the
-  pre-built static binary from the official GitHub releases.
+  pre-built static binary from the official GitHub releases at build time.
 
 build-depends:
   - base/base-stack.bst
@@ -21,7 +21,7 @@ config:
       URL="https://github.com/tailscale/tailscale/releases/download/v${TAILSCALE_VERSION}/tailscale_${TAILSCALE_VERSION}_${ARCH}.tgz"
       mkdir -p "%{install-root}/usr/bin"
       mkdir -p "%{install-root}/etc/tailscale"
-      curl -fsSL "${URL}" -o /tmp/tailscale.tgz
-      tar -xzf /tmp/tailscale.tgz -C /tmp
+      export TAILSCALE_URL="${URL}"
+      python3 download-tailscale.py
       install -m 0755 /tmp/tailscale "%{install-root}/usr/bin/tailscale"
       install -m 0755 /tmp/tailscaled "%{install-root}/usr/bin/tailscaled"
