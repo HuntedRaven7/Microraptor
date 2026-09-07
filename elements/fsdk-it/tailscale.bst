@@ -2,27 +2,22 @@ kind: manual
 description: |
   Install the Tailscale client binary into the target OS image.
 
-  Tailscale is not available as an FSDK component, so we download the
-  pre-built static binary from the official GitHub releases at build time.
+  Tailscale is not available as an FSDK component, so we fetch the
+  pre-built static binary from the official package server.
 
 build-depends:
   - base/base-stack.bst
-  - freedesktop-sdk.bst:components/curl.bst
 
 sources:
-  - kind: local
-    path: files/os/tailscale
+  - kind: tar
+    url: https://pkgs.tailscale.com/stable/tailscale_1.102.3_amd64.tgz
+    ref: 36ddd9b51be57ffc2990cf76323cfa13643bfbb1b8a969f6183fa164741cdef5
 
 config:
   install-commands:
     - |
       set -euo pipefail
-      TAILSCALE_VERSION="1.102.3"
-      ARCH="amd64"
-      URL="https://github.com/tailscale/tailscale/releases/download/v${TAILSCALE_VERSION}/tailscale_${TAILSCALE_VERSION}_${ARCH}.tgz"
       mkdir -p "%{install-root}/usr/bin"
       mkdir -p "%{install-root}/etc/tailscale"
-      export TAILSCALE_URL="${URL}"
-      sh download-tailscale.sh
-      install -m 0755 /tmp/tailscale "%{install-root}/usr/bin/tailscale"
-      install -m 0755 /tmp/tailscaled "%{install-root}/usr/bin/tailscaled"
+      install -m 0755 tailscale_1.102.3_amd64/tailscale "%{install-root}/usr/bin/tailscale"
+      install -m 0755 tailscale_1.102.3_amd64/tailscaled "%{install-root}/usr/bin/tailscaled"
