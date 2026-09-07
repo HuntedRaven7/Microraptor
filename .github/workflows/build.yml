@@ -1,10 +1,10 @@
 name: Build DDI artifacts
 
 on:
-  pull_request
+  pull_request:
   push:
     branches: [main]
-  workflow_dispatch
+  workflow_dispatch:
 
 concurrency:
   group: build-${{ github.ref }}
