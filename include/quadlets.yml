@@ -10,3 +10,6 @@ variables:
 
   vaultwarden-image: "docker.io/vaultwarden/server:1.32"
   vaultwarden-digest: "sha256:jkl012"
+
+  tailscale-image: "docker.io/tailscale/tailscale:stable"
+  tailscale-digest: "sha256:latest"

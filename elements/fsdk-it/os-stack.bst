@@ -53,9 +53,6 @@ depends:
   - freedesktop-sdk.bst:components/networkmanager.bst
   - fsdk-it/os-network-manager.bst
 
-  # Tailscale mesh VPN (not in FSDK; custom manual element)
-  - fsdk-it/tailscale.bst
-
   # System Management Justfile
   - fsdk-it/os-justfile.bst
 

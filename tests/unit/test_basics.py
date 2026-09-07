@@ -39,7 +39,7 @@ def test_skills_index_exists():
 
 
 def test_quadlets_present():
-    templates = ["pihole.container", "hermes-agent.container", "glance.container", "vaultwarden.container"]
+    templates = ["pihole.container", "hermes-agent.container", "glance.container", "vaultwarden.container", "tailscale.container"]
     for q in templates:
         assert (ROOT / "files" / "os" / "containers" / "systemd" / "templates" / q).exists(), f"Missing quadlet template: {q}"
 
@@ -51,18 +51,14 @@ def test_os_stack_includes_containers():
 
 def test_quadlets_yml_has_versions():
     yml = (ROOT / "include" / "quadlets.yml").read_text()
-    for service in ["pihole", "hermes", "glance", "vaultwarden"]:
+    for service in ["pihole", "hermes", "glance", "vaultwarden", "tailscale"]:
         assert f"{service}-image:" in yml, f"quadlets.yml missing {service}-image"
-        assert ":latest" not in yml, f"quadlets.yml contains :latest for {service}"
+        image_line = next((l for l in yml.splitlines() if l.strip().startswith(f"{service}-image:")), "")
+        assert ":latest" not in image_line, f"quadlets.yml contains :latest tag for {service}"
 
 
-def test_os_stack_includes_tailscale():
-    stack = (ROOT / "elements" / "fsdk-it" / "os-stack.bst").read_text()
-    assert "tailscale.bst" in stack, "os-stack missing tailscale.bst"
-
-
-def test_tailscale_element_exists():
-    assert (ROOT / "elements" / "fsdk-it" / "tailscale.bst").exists()
+def test_tailscale_quadlet_present():
+    assert (ROOT / "files" / "os" / "containers" / "systemd" / "templates" / "tailscale.container").exists()
 
 
 def main():
@@ -75,8 +71,7 @@ def main():
         test_quadlets_present,
         test_os_stack_includes_containers,
         test_quadlets_yml_has_versions,
-        test_os_stack_includes_tailscale,
-        test_tailscale_element_exists,
+        test_tailscale_quadlet_present,
     ]
     failed = 0
     for test in tests:

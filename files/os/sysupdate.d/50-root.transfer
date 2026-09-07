@@ -1,0 +1,12 @@
+[Transfer]
+Title=fsdk-it OS root image
+
+[Source]
+Type=url-file
+Path=https://github.com/HuntedRaven7/fsdk-it/releases/latest/download/
+MatchPattern=fsdk-it-ddi-@v.raw.zst
+
+[Target]
+Type=partition
+Path=auto
+MatchPattern=fsdk-it-root-a fsdk-it-root-b
