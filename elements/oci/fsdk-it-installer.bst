@@ -9,7 +9,7 @@ description: |
 
   Initrd approach: dracut-free, cpio-native.
   The installer-stack rootfs is packed directly into a cpio.zst initrd using
-  POSIX find + cpio. No initrd generator is needed — systemd PID 1 works
+  POSIX find + cpio. No initrd generator is needed - systemd PID 1 works
   correctly when the initrd is a plain rootfs cpio with /init -> systemd.
   This is the approach the systemd project uses for its own test images.
 
@@ -48,7 +48,7 @@ build-depends:
   - filename: installer/installer-stack.bst
     config:
       location: /layer
-  # OS DDI payload staged at /ddi — embedded into the installer media data partition
+  # OS DDI payload staged at /ddi - embedded into the installer media data partition
   - filename: oci/fsdk-it-ddi.bst
     config:
       location: /ddi
@@ -61,7 +61,7 @@ variables:
 
 config:
   commands:
-    # ── Step 1: Prepare the initrd rootfs ───────────────────────────────
+    # -- Step 1: Prepare the initrd rootfs -------------------------------
     # /init is required by the Linux initrd protocol (kernel hands control
     # to /init as PID 1). For systemd-native initrds this is a symlink.
     - |
@@ -185,7 +185,7 @@ config:
       ExecStart=
       ExecStart=/usr/bin/fsdk-it-sysinstall
       EOF
-      # ── Step 2: Wire default.target -> system-install.target ────────────
+      # -- Step 2: Wire default.target -> system-install.target ------------
     - |
       set -eu
       if [ ! -f /layer/usr/lib/systemd/system/system-install.target ]; then
@@ -204,7 +204,7 @@ config:
       ln -sf system-install.target \
         /layer/usr/lib/systemd/system/default.target
 
-    # ── Step 3: Pack initrd cpio ─────────────────────────────────────────
+    # -- Step 3: Pack initrd cpio -----------------------------------------
     # find . from /layer gives paths like ./usr/bin/... which is exactly
     # the newc format the kernel expects. The kernel strips the leading dot.
     - |
@@ -235,8 +235,8 @@ config:
         | gzip -9 -c > /installer.cpio.gz
       ls -lh /installer.cpio.gz
 
-    # ── Step 4: Build the UKI ────────────────────────────────────────────
-    # Unsigned UKI — acceptable for USB installer media. Secure Boot
+    # -- Step 4: Build the UKI --------------------------------------------
+    # Unsigned UKI - acceptable for USB installer media. Secure Boot
     # signing can be layered on by passing --secureboot-private-key /
     # --secureboot-certificate if keys are injected at CI time.
     - |
@@ -249,7 +249,7 @@ config:
         --output=/layer/boot/efi/EFI/BOOT/BOOTX64.EFI
       ls -lh /layer/boot/efi/EFI/BOOT/BOOTX64.EFI
 
-    # ── Step 5: Decompress DDI payload for embedding ─────────────────────
+    # -- Step 5: Decompress DDI payload for embedding ---------------------
     # This runs AFTER the initrd cpio is packed (Step 3), so the DDI is NOT
     # included in the initrd. It is placed in /layer temporarily so that
     # systemd-repart's CopyBlocks= (which resolves paths under --root=/layer)
@@ -259,10 +259,10 @@ config:
       zstd -d /ddi/fsdk-it-ddi-*.raw.zst -o /layer/fsdk-it-ddi.raw
       ls -lh /layer/fsdk-it-ddi.raw
 
-    # ── Step 6: Assemble installer GPT disk image ────────────────────────
+    # -- Step 6: Assemble installer GPT disk image ------------------------
     # Two-partition layout:
-    #   10-esp.conf:      ESP (1G) — UKI lives here; boots the installer
-    #   20-ddi-data.conf: Data (XFS) — fsdk-it-ddi.raw copied here block-for-block
+    #   10-esp.conf:      ESP (1G) - UKI lives here; boots the installer
+    #   20-ddi-data.conf: Data (XFS) - fsdk-it-ddi.raw copied here block-for-block
     - |
       set -eu
       OUT="%{install-root}"
@@ -294,10 +294,10 @@ config:
         "${OUT}/${FNAME}"
       ls -lh "${OUT}/${FNAME}"
 
-      # Clean up DDI from /layer — it's now in the installer media partition.
+      # Clean up DDI from /layer - it's now in the installer media partition.
       rm -f /layer/fsdk-it-ddi.raw
 
-    # ── Step 7: Compress + checksum ──────────────────────────────────────
+    # -- Step 7: Compress + checksum --------------------------------------
     - |
       set -eu
       cd "%{install-root}"
