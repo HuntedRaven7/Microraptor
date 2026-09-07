@@ -7,6 +7,7 @@ description: |
 
 build-depends:
   - base/base-stack.bst
+  - freedesktop-sdk.bst:components/curl.bst
 
 sources:
   - kind: local
