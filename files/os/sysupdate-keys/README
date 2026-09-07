@@ -1,0 +1,3 @@
+# Place the release-signing public keyring here.
+# Filename: import-pubring.gpg
+# Generated from the GPG key used to sign SHA256SUMS.gpg in GitHub Releases.
