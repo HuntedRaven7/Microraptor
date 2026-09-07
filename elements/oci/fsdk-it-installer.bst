@@ -182,10 +182,11 @@ config:
       FailureAction=poweroff
 
       [Service]
-      ExecStart=
-      ExecStart=/usr/bin/fsdk-it-sysinstall
-      EOF
-      # -- Step 2: Wire default.target -> system-install.target ------------
+        ExecStart=
+        ExecStart=/usr/bin/fsdk-it-sysinstall
+        EOF
+
+    # -- Step 2: Wire default.target -> system-install.target ------------
     - |
       set -eu
       if [ ! -f /layer/usr/lib/systemd/system/system-install.target ]; then
