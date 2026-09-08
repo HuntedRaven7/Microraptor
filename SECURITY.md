@@ -3,7 +3,7 @@
 ## Reporting a Vulnerability
 
 Report security vulnerabilities privately through
-[GitHub Private Vulnerability Reporting](https://github.com/HuntedRaven7/fsdk-it/security/advisories/new).
+[GitHub Private Vulnerability Reporting](https://github.com/HuntedRaven7/microraptor/security/advisories/new).
 Do **not** open a public GitHub issue for an unpatched vulnerability.
 
 Please include:
@@ -26,7 +26,7 @@ We follow coordinated disclosure:
 
 ## Supported Versions
 
-fsdk-it has no long-term support branches. Versioning is derived from
+microraptor has no long-term support branches. Versioning is derived from
 the pinned freedesktop-sdk release (run `just version` / `just tags`), and
 `systemd-sysupdate` pulls updates exclusively from the **latest** GitHub
 Release. Only the latest release receives fixes; older point releases are not

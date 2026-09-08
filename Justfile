@@ -52,8 +52,8 @@ tags:
 validate:
     python3 .github/scripts/check-release-version.py
     python3 .github/scripts/check-k0s-version.py
-    just bst show --deps all oci/fsdk-it-ddi.bst
-    just bst show --deps all oci/fsdk-it-installer.bst
+    just bst show --deps all oci/microraptor-ddi.bst
+    just bst show --deps all oci/microraptor-installer.bst
     just bst show --deps all oci/k0s-sysext.bst
 
 # Run the unit test suite (pytest + bats).
@@ -70,24 +70,24 @@ build:
 # -- Export ------------------------------------------------------
 [group('installer')]
 build-ddi:
-    just bst build oci/fsdk-it-ddi.bst
+    just bst build oci/microraptor-ddi.bst
 
 [group('installer')]
 export-ddi: build-ddi
     rm -rf dist/ddi
     mkdir -p dist/ddi
-    just bst artifact checkout oci/fsdk-it-ddi.bst --directory /src/dist/ddi
+    just bst artifact checkout oci/microraptor-ddi.bst --directory /src/dist/ddi
     @echo "==> wrote DDI payload:" && ls -lh dist/ddi/
 
 [group('installer')]
 build-installer:
-    just bst build oci/fsdk-it-installer.bst
+    just bst build oci/microraptor-installer.bst
 
 [group('build')]
 cluster-build REF="main":
-    argo submit --from wftmpl/fsdk-it-build-pipeline \
+    argo submit --from wftmpl/microraptor-build-pipeline \
         --parameter ref={{REF}} \
-        --parameter repo=https://github.com/HuntedRaven7/fsdk-it.git \
+        --parameter repo=https://github.com/HuntedRaven7/microraptor.git \
         --parameter registry=registry.testing-lab.internal:30500 \
         -n argo \
         --watch
@@ -96,17 +96,17 @@ cluster-build REF="main":
 export-installer: build-installer
     rm -rf dist/installer-checkout
     mkdir -p dist dist/installer-checkout
-    rm -f dist/fsdk-it-installer-*.raw.zst dist/fsdk-it-*.efi dist/fsdk-it-pxe-* dist/SHA256SUMS
-    just bst artifact checkout oci/fsdk-it-installer.bst --directory /src/dist/installer-checkout
+    rm -f dist/microraptor-installer-*.raw.zst dist/microraptor-*.efi dist/microraptor-pxe-* dist/SHA256SUMS
+    just bst artifact checkout oci/microraptor-installer.bst --directory /src/dist/installer-checkout
     mv dist/installer-checkout/* dist/
     rm -rf dist/installer-checkout
     @echo "==> wrote:" && ls -lh dist/
 
 [group('installer')]
 export-pxe: export-installer
-    @test -n "$(find dist/ -maxdepth 1 -type f -name 'fsdk-it-pxe-vmlinuz-*' -print -quit)" || { echo "ERROR: PXE kernel was not exported." >&2; exit 1; }
-    @test -n "$(find dist/ -maxdepth 1 -type f -name 'fsdk-it-pxe-initrd-*.cpio.gz' -print -quit)" || { echo "ERROR: PXE initrd was not exported." >&2; exit 1; }
-    @echo "==> wrote PXE artifacts:" && ls -lh dist/fsdk-it-pxe-*
+    @test -n "$(find dist/ -maxdepth 1 -type f -name 'microraptor-pxe-vmlinuz-*' -print -quit)" || { echo "ERROR: PXE kernel was not exported." >&2; exit 1; }
+    @test -n "$(find dist/ -maxdepth 1 -type f -name 'microraptor-pxe-initrd-*.cpio.gz' -print -quit)" || { echo "ERROR: PXE initrd was not exported." >&2; exit 1; }
+    @echo "==> wrote PXE artifacts:" && ls -lh dist/microraptor-pxe-*
 
 # -- k0s systemd-sysext -------------------------------------------------------
 [group('sysext')]
@@ -139,7 +139,7 @@ flash-installer DEVICE="":
         echo "ERROR: {{DEVICE}} is not a valid block device!" >&2
         exit 1
     fi
-    IMG=$(find dist/ -type f -name 'fsdk-it-installer-*.raw.zst' | head -n1)
+    IMG=$(find dist/ -type f -name 'microraptor-installer-*.raw.zst' | head -n1)
     if [ -z "${IMG}" ]; then
         echo "ERROR: No exported installer found in dist/." >&2
         echo "Please run: just build-installer && just export-installer" >&2
@@ -156,7 +156,7 @@ flash-installer DEVICE="":
     fi
     echo "Writing ${IMG} to {{DEVICE}}..."
     sudo sh -c "zstd -dc ${IMG} | dd of={{DEVICE}} bs=4M iflag=fullblock oflag=direct status=progress conv=fsync"
-    echo "Successfully flashed the fsdk-it installer to {{DEVICE}}!"
+    echo "Successfully flashed the microraptor installer to {{DEVICE}}!"
 
 # Build, install, and reboot the server in QEMU using the raw installer disk.
 [group('test')]
@@ -166,13 +166,13 @@ show-me-the-future:
 
     CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}"
     mkdir -p "$CACHE_DIR"
-    WORKDIR="$(mktemp -d "${CACHE_DIR}/fsdk-it-show-future.XXXXXX")"
+    WORKDIR="$(mktemp -d "${CACHE_DIR}/microraptor-show-future.XXXXXX")"
     trap 'rm -rf "$WORKDIR"' EXIT
 
     just build-installer
     just export-installer
 
-    cp dist/fsdk-it-installer-*.raw.zst "$WORKDIR/installer.raw.zst"
+    cp dist/microraptor-installer-*.raw.zst "$WORKDIR/installer.raw.zst"
     zstd -d "$WORKDIR/installer.raw.zst" -o "$WORKDIR/installer.raw"
     TARGET_SIZE="${SHOW_ME_THE_FUTURE_DISK_SIZE:-16G}"
     truncate -s "${TARGET_SIZE}" "$WORKDIR/target.raw"

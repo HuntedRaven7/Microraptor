@@ -106,8 +106,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist/release
-          cp dist/fsdk-it-installer-*.raw.zst dist/fsdk-it-*.efi dist/release/
-          cp dist/ddi/fsdk-it-ddi-*.raw.zst dist/release/
+          cp dist/microraptor-installer-*.raw.zst dist/microraptor-*.efi dist/release/
+          cp dist/ddi/microraptor-ddi-*.raw.zst dist/release/
           cp dist/sysext/k0s-*.raw.zst dist/release/
           (cd dist/release && sha256sum --binary -- * > SHA256SUMS)
           GNUPGHOME=$(mktemp -d)
@@ -153,7 +153,7 @@ jobs:
           V="${{ needs.build.outputs.version }}"
           TAG="installer-v${V}"
           echo "Uploading release assets for tag: ${TAG}"
-          gh release create "${TAG}" --title "fsdk-it v${V}" --notes "Automated release triggered by Renovate dependency update on main" --prerelease=false || true
+          gh release create "${TAG}" --title "microraptor v${V}" --notes "Automated release triggered by Renovate dependency update on main" --prerelease=false || true
           gh release upload "${TAG}" \
             dist/release/* \
             --clobber

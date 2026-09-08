@@ -1,5 +1,5 @@
 kind: stack
-description: Stack containing all elements required to build a pure DDI fsdk-it rootfs.
+description: Stack containing all elements required to build a pure DDI microraptor rootfs.
 
 depends:
   # Base runtime & core libraries
@@ -18,46 +18,46 @@ depends:
   - freedesktop-sdk.bst:components/openssh-systemd.bst
 
   # SSH enablement drop-ins
-  - fsdk-it/os-sshd-preset.bst
-  - fsdk-it/os-sshd-config.bst
+  - microraptor/os-sshd-preset.bst
+  - microraptor/os-sshd-config.bst
 
   # Stock FSDK Kernel & Server-Chiseled Firmware
   - freedesktop-sdk.bst:components/linux.bst
-  - fsdk-it/linux-firmware-split.bst
+  - microraptor/linux-firmware-split.bst
 
   # Filesystem resizing support for growing root/var on first boot
   - freedesktop-sdk.bst:components/xfsprogs.bst
 
   # Sysext Compatibility Identity
-  - fsdk-it/os-release-flatcar.bst
+  - microraptor/os-release-flatcar.bst
 
   # A/B System Update Configurations
-  - fsdk-it/os-sysupdate.bst
+  - microraptor/os-sysupdate.bst
 
   # Public keyring for verifying SHA256SUMS manifests from GitHub Releases
-  - fsdk-it/os-sysupdate-keys.bst
+  - microraptor/os-sysupdate-keys.bst
 
   # gpg binary required by systemd-sysupdate to verify SHA256SUMS.gpg
   - freedesktop-sdk.bst:components/gnupg.bst
 
   # First-Boot Credentials Provisioning
-  - fsdk-it/os-creds-prov.bst
+  - microraptor/os-creds-prov.bst
 
   # Reboot Coordination for Kured
-  - fsdk-it/os-kured-hook.bst
+  - microraptor/os-kured-hook.bst
 
   # Container Runtime support
   - freedesktop-sdk.bst:components/podman.bst
 
   # Network Manager configuration and enablement
   - freedesktop-sdk.bst:components/networkmanager.bst
-  - fsdk-it/os-network-manager.bst
+  - microraptor/os-network-manager.bst
 
   # System Management Justfile
-  - fsdk-it/os-justfile.bst
+  - microraptor/os-justfile.bst
 
   # Console issue banner
-  - fsdk-it/os-issue.bst
+  - microraptor/os-issue.bst
 
   # Podman Quadlets for common services
-  - fsdk-it/os-containers.bst
+  - microraptor/os-containers.bst

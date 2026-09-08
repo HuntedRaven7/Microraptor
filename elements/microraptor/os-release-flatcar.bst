@@ -39,15 +39,15 @@ config:
       FLATCAR_VERSION="4593.2.3"
 
       cat <<EOF > "%{install-root}/usr/lib/os-release"
-      NAME="fsdk-it"
+      NAME="microraptor"
       ID=flatcar
       ID_LIKE=fedora
       VERSION="${FLATCAR_VERSION}-fsdk"
       VERSION_ID=${FLATCAR_VERSION}
-      PRETTY_NAME="fsdk-it ${FSDK_VERSION}"
+      PRETTY_NAME="microraptor ${FSDK_VERSION}"
       ANSI_COLOR="0;38;5;208"
-      HOME_URL="https://github.com/HuntedRaven7/fsdk-it"
-      BUG_REPORT_URL="https://github.com/HuntedRaven7/fsdk-it/issues"
+      HOME_URL="https://github.com/HuntedRaven7/Microraptor"
+      BUG_REPORT_URL="https://github.com/HuntedRaven7/Microraptor/issues"
       FLATCAR_BOARD="%{flatcar-board}"
       CPE_NAME="cpe:/o:flatcar-linux:flatcar_linux:${FLATCAR_VERSION}"
       IMAGE_VERSION=${FSDK_VERSION}

@@ -1,6 +1,6 @@
 ---
 name: factory-integration
-description: Understand fsdk-it's role as the core OS for an image-based CI/OS factory and how optional workloads run on it.
+description: Understand microraptor's role as the core OS for an image-based CI/OS factory and how optional workloads run on it.
 metadata:
   type: reference
   status: stable
@@ -8,9 +8,9 @@ metadata:
 ---
 # Factory Integration
 
-fsdk-it is not a generic server distribution; it is the core operating system for an image-based CI/OS factory.
+microraptor is not a generic server distribution; it is the core operating system for an image-based CI/OS factory.
 
-The factory pattern is broader than a single host: a downstream CI lab or OS factory uses fsdk-it as the base OS for automated provisioning, image-based updates, and optional runtime workloads. That environment shapes the design of this repository.
+The factory pattern is broader than a single host: a downstream CI lab or OS factory uses microraptor as the base OS for automated provisioning, image-based updates, and optional runtime workloads. That environment shapes the design of this repository.
 
 ## k0s is a sysext, not base image bloat
 
@@ -22,9 +22,9 @@ Kubernetes is not baked into the OS DDI. The base image stays small and stateles
 
 ## Workloads are containers
 
-The workloads the factory tests and ships live in other repositories or image pipelines. fsdk-it hosts them via `podman`.
+The workloads the factory tests and ships live in other repositories or image pipelines. microraptor hosts them via `podman`.
 
-> fsdk-it is the factory floor; optional workloads and variant images run on that floor.
+> microraptor is the factory floor; optional workloads and variant images run on that floor.
 
 ## Why this matters for server design
 
@@ -39,14 +39,14 @@ The workloads the factory tests and ships live in other repositories or image pi
 
 ## SSH and standard server administration
 
-> `sshd` is included for standard server administration. Root login is permitted with key-based auth only (see [`files/os/ssh/sshd_config.d/fsdk-it.conf`](files/os/ssh/sshd_config.d/fsdk-it.conf)). The lab runs the `fsdk-it-boot-test` workflow (in the downstream factory CI repository) to verify installer → first-boot success.
+> `sshd` is included for standard server administration. Root login is permitted with key-based auth only (see [`files/os/ssh/sshd_config.d/microraptor.conf`](files/os/ssh/sshd_config.d/microraptor.conf)). The lab runs the `microraptor-boot-test` workflow (in the downstream factory CI repository) to verify installer → first-boot success.
 
 ## When to Use
 
 - Explaining why a server feature exists (offline installer, sysext-first design, image updates).
 - Deciding whether a new component belongs in the base DDI or in a standalone `systemd-sysext`.
 - Integrating server builds with the downstream CI or image-factory pipeline.
-- Onboarding a contributor who asks "what is fsdk-it for?"
+- Onboarding a contributor who asks "what is microraptor for?"
 
 ## When NOT to Use
 
@@ -65,8 +65,8 @@ The workloads the factory tests and ships live in other repositories or image pi
 
 ## Red Flags
 
-- Adding a workload dependency to `elements/fsdk-it/os-stack.bst` that could ship as a `systemd-sysext`.
-- Treating fsdk-it as a generic Fedora/RHEL replacement rather than the factory core OS.
+- Adding a workload dependency to `elements/microraptor/os-stack.bst` that could ship as a `systemd-sysext`.
+- Treating microraptor as a generic Fedora/RHEL replacement rather than the factory core OS.
 - Putting Kubernetes tooling in the base DDI instead of the k3s sysext.
 - Designing install/update paths that require interactive human steps in the factory.
 

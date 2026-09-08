@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit tests for fsdk-it."""
+"""Unit tests for microraptor."""
 import subprocess
 import sys
 from pathlib import Path
@@ -23,7 +23,7 @@ def test_freedesktop_sdk_ref_matches():
 
 
 def test_os_stack_has_network_manager():
-    stack = (ROOT / "elements" / "fsdk-it" / "os-stack.bst").read_text()
+    stack = (ROOT / "elements" / "microraptor" / "os-stack.bst").read_text()
     assert "network-manager.bst" in stack, "os-stack missing network-manager.bst"
     assert "os-network-manager.bst" in stack, "os-stack missing os-network-manager.bst"
 
@@ -45,7 +45,7 @@ def test_quadlets_present():
 
 
 def test_os_stack_includes_containers():
-    stack = (ROOT / "elements" / "fsdk-it" / "os-stack.bst").read_text()
+    stack = (ROOT / "elements" / "microraptor" / "os-stack.bst").read_text()
     assert "os-containers.bst" in stack, "os-stack missing os-containers.bst"
 
 

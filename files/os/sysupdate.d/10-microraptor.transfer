@@ -1,14 +1,14 @@
 [Transfer]
-Title=k0s Kubernetes sysext
+Title=Microraptor OS image
 
 [Source]
 Type=url-file
 Path=https://github.com/HuntedRaven7/Microraptor/releases/latest/download/
-MatchPattern=k0s-@v.raw.zst
+MatchPattern=Microraptor-ddi-@v.raw.zst
 
 [Target]
 Type=regular-file
 Path=/var/lib/extensions
-MatchPattern=k0s-@v.raw
-CurrentSymlink=k0s.raw
+MatchPattern=Microraptor-ddi-@v.raw
+CurrentSymlink=Microraptor-ddi.raw
 Mode=0644

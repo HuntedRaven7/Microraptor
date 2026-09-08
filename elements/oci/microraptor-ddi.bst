@@ -1,8 +1,8 @@
 kind: script
 description: |
-  Produce the fsdk-it OS DDI payload filesystem image.
+  Produce the microraptor OS DDI payload filesystem image.
 
-  Output: fsdk-it-ddi-<ver>.raw.zst + SHA256SUMS
+  Output: microraptor-ddi-<ver>.raw.zst + SHA256SUMS
 
   The output .raw is a filesystem image consumed by installer repart config:
   files/installer/repart.d/20-root-a.conf via CopyBlocks=.
@@ -12,7 +12,7 @@ build-depends:
   - freedesktop-sdk.bst:components/xfsprogs.bst
   - freedesktop-sdk.bst:components/findutils.bst
   - freedesktop-sdk.bst:components/zstd.bst
-  - filename: fsdk-it/os-rootfs.bst
+  - filename: microraptor/os-rootfs.bst
     config:
       location: /layer
 
@@ -24,7 +24,7 @@ config:
     - |
       set -euo pipefail
       OUT="%{install-root}"
-      FNAME="fsdk-it-ddi-%{ddi-version}.raw"
+      FNAME="microraptor-ddi-%{ddi-version}.raw"
 
       rm -rf /layer/usr/lib/debug
       find /layer -type f -name '*.debug' -delete
@@ -43,7 +43,7 @@ config:
       truncate -s "${TARGET_BYTES}" "${OUT}/${FNAME}"
 
       echo "Allocating XFS image of ${TARGET_BYTES} bytes"
-      mkfs.xfs -f -L fsdk-it-root -p /layer "${OUT}/${FNAME}"
+      mkfs.xfs -f -L microraptor-root -p /layer "${OUT}/${FNAME}"
 
       zstd --rm -T0 -19 -q "${OUT}/${FNAME}" -o "${OUT}/${FNAME}.zst"
       (

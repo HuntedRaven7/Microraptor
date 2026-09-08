@@ -1,6 +1,6 @@
 ---
 name: k0s-sysext-ops
-description: Operating k0s on fsdk-it.
+description: Operating k0s on microraptor.
 metadata:
   type: how-to
   status: stable
@@ -10,7 +10,7 @@ metadata:
 
 ## When to Use
 
-- Operating k0s on fsdk-it.
+- Operating k0s on microraptor.
 - Runtime operation and reboot coordination for k0s.
 
 ## When NOT to Use
@@ -19,7 +19,7 @@ metadata:
 
 ## Enabling k0s
 
-On a running fsdk-it system:
+On a running microraptor system:
 
 ```bash
 # Trigger systemd-sysupdate to pull the k0s systemd-sysext if missing

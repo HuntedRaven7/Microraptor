@@ -1,6 +1,6 @@
 ---
 name: podman-quadlets
-description: Working with Podman quadlets on fsdk-it.
+description: Working with Podman quadlets on microraptor.
 metadata:
   type: how-to
   status: stable
@@ -10,7 +10,7 @@ metadata:
 
 ## When to Use
 
-- Working with Podman quadlets on fsdk-it.
+- Working with Podman quadlets on microraptor.
 - Podman quadlet deployment and management.
 
 ## When NOT to Use

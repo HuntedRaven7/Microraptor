@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Lightweight docs validator for the fsdk-it repo.
+"""Lightweight docs validator for the microraptor repo.
 
 Enforces:
 - Skill front-matter schema and budgets

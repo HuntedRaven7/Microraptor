@@ -1,6 +1,6 @@
 ---
 name: ddi-installer
-description: Use when building or debugging the fsdk-it DDI live installer, or managing the systemd-sysinstall recipes or target boot configurations.
+description: Use when building or debugging the microraptor DDI live installer, or managing the systemd-sysinstall recipes or target boot configurations.
 metadata:
   type: reference
   status: stable
@@ -13,7 +13,7 @@ metadata:
 
 ## When to Use
 
-- Building or debugging the fsdk-it live installer media.
+- Building or debugging the microraptor live installer media.
 - Writing or refining `systemd-repart`, `bootctl`, or `ukify` configurations.
 - Packaging or publishing DDI assets to GitHub Releases.
 - Managing partition recipes for the target disk layout (`10-esp.conf`,
@@ -29,7 +29,7 @@ metadata:
 ## Architecture
 
 The installer is offline, self-contained, and systemd-native. The OS DDI payload
-(`fsdk-it-ddi.bst`) is embedded as a data partition on the installer
+(`microraptor-ddi.bst`) is embedded as a data partition on the installer
 media at build time. No network access is required at install time.
 
 The installer UI is systemd's built-in `systemd-sysinstall` which provides a
@@ -53,14 +53,14 @@ terminal-based interactive installation that:
 | Partition | Type | Size | Contents |
 |---|---|---|---|
 | ESP | vfat | 1 GiB fixed | `EFI/BOOT/BOOTX64.EFI` + `EFI/Linux/installer.efi` (UKI) |
-| `fsdk-it-installer-data` | XFS | auto | OS filesystem DDI image, copied block-for-block |
+| `microraptor-installer-data` | XFS | auto | OS filesystem DDI image, copied block-for-block |
 
 ### Target disk (after install)
 
 | Partition | Type | Size | Contents |
 |---|---|---|---|
-| ESP | vfat | 500 MiB – 1 GiB | `systemd-boot` + target OS UKI (`fsdk-it.efi`) |
-| `fsdk-it-root-a` | XFS | 4 GiB – 16 GiB | OS root filesystem (copied from installer data partition) |
+| ESP | vfat | 500 MiB – 1 GiB | `systemd-boot` + target OS UKI (`microraptor.efi`) |
+| `microraptor-root-a` | XFS | 4 GiB – 16 GiB | OS root filesystem (copied from installer data partition) |
 | `var` | XFS | ≥ 4 GiB | Writable persistent `/var`; grows to fill remaining disk |
 
 ## Verification
@@ -70,7 +70,7 @@ terminal-based interactive installation that:
 - [ ] UKI boot cmdline points to `systemd.unit=system-install.target`.
 - [ ] Serial console `console=ttyS0,115200` is the final console argument in the installer UKI cmdline.
 - [ ] `installer-stack.bst` explicitly includes XFS and vfat support.
-- [ ] `fsdk-it-installer.bst` overrides `systemd-sysinstall.service`
+- [ ] `microraptor-installer.bst` overrides `systemd-sysinstall.service`
       with `SuccessAction=poweroff`/`FailureAction=poweroff` for clean shutdown.
-- [ ] `fsdk-it-installer.bst` decompresses the DDI after the cpio step.
+- [ ] `microraptor-installer.bst` decompresses the DDI after the cpio step.
 - [ ] `files/installer/repart.d/20-root-a.conf` has `GrowFileSystem=yes`.

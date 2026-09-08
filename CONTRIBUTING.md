@@ -1,4 +1,4 @@
-# Contributing to fsdk-it
+# Contributing to microraptor
 
 Thanks for contributing. This repo is optimized for AI coding agents first; human contributors should follow the same skill-driven path.
 

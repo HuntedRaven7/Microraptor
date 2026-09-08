@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enforce the release-version invariant for fsdk-it.
+"""Enforce the release-version invariant for microraptor.
 
 project.conf declares:
 
@@ -7,8 +7,8 @@ project.conf declares:
       release-version: "X.Y.Z"   # must match the FSDK point release
 
 That value names every published *OS* release asset
-(`fsdk-it-ddi-<v>.raw.zst`, `fsdk-it-<v>.efi`,
-`fsdk-it-installer-<v>.raw.zst`) and is the version
+(`microraptor-ddi-<v>.raw.zst`, `microraptor-<v>.efi`,
+`microraptor-installer-<v>.raw.zst`) and is the version
 systemd-sysupdate extracts from those filenames via `@v`.
 
 The k0s sysext is deliberately *not* on this axis: it is an

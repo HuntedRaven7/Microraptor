@@ -5,7 +5,7 @@ description: |
   NOT distroless — the installer needs tools and a shell.
 
   No dracut: the initrd is assembled directly from this rootfs via cpio in
-  fsdk-it-installer.bst. This keeps the toolchain minimal and removes
+  microraptor-installer.bst. This keeps the toolchain minimal and removes
   the dracut dependency chain.
 
   The DDI payload is embedded in the installer media (offline install).

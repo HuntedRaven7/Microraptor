@@ -14,7 +14,7 @@
 #
 # Included by:
 #   elements/oci/k0s-sysext.bst              -> %{systemd-arch}
-#   elements/fsdk-it/os-release-flatcar.bst -> %{flatcar-board}
+#   elements/microraptor/os-release-flatcar.bst -> %{flatcar-board}
 variables:
   (?):
     - arch == "x86_64":

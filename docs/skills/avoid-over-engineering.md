@@ -27,8 +27,8 @@ metadata:
 
 ## Red Flags
 
-- Adding a workload dependency to `elements/fsdk-it/os-stack.bst` that could ship as a `systemd-sysext`.
-- Treating fsdk-it as a generic Fedora/RHEL replacement rather than a factory core OS.
+- Adding a workload dependency to `elements/microraptor/os-stack.bst` that could ship as a `systemd-sysext`.
+- Treating microraptor as a generic Fedora/RHEL replacement rather than a factory core OS.
 - Putting Kubernetes tooling in the base DDI instead of the k0s sysext.
 - Designing install/update paths that require interactive human steps in the factory.
 

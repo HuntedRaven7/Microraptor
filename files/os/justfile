@@ -1,4 +1,4 @@
-# System-wide justfile for fsdk-it management
+# System-wide justfile for Microraptor management
 
 default:
     @just --list

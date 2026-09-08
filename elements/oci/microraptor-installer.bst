@@ -1,8 +1,8 @@
 kind: script
 description: |
-  Produce the fsdk-it DDI live installer disk image.
+  Produce the microraptor DDI live installer disk image.
 
-  Output: fsdk-it-installer-<ver>.raw.zst + SHA256SUMS
+  Output: microraptor-installer-<ver>.raw.zst + SHA256SUMS
 
   Offline installer: the OS DDI payload is embedded as a data partition on
   the installer media. No network required at install time.
@@ -51,10 +51,10 @@ build-depends:
     config:
       location: /layer
   # OS DDI payload staged at /ddi - embedded into the installer media data partition
-  - filename: oci/fsdk-it-ddi.bst
+  - filename: oci/microraptor-ddi.bst
     config:
       location: /ddi
-  - filename: fsdk-it/os-rootfs.bst
+  - filename: microraptor/os-rootfs.bst
     config:
       location: /target-root
 
@@ -78,7 +78,7 @@ config:
       ln -sf usr/lib/systemd/systemd /layer/init
       # Mount points needed by the installer service
       mkdir -p /layer/efi /layer/mnt/esp /layer/mnt/root /layer/run/installer
-      mkdir -p /layer/usr/lib/fsdk-it
+      mkdir -p /layer/usr/lib/microraptor
       mkdir -p /target-root/boot/EFI/Linux /tmp /var/tmp
 
     # -- Step 1b: Generate target OS UKI (dracut + ukify) ----------------
@@ -107,14 +107,14 @@ config:
         --kernel-image "${TARGET_KERNEL}" \
         --kver "${TARGET_KVER}" \
         --kernel-cmdline "rw console=ttyS0,115200 console=tty0" \
-        /tmp/fsdk-it-target.initramfs
+        /tmp/microraptor-target.initramfs
 
       ukify build \
         --linux="${TARGET_KERNEL}" \
-        --initrd=/tmp/fsdk-it-target.initramfs \
+        --initrd=/tmp/microraptor-target.initramfs \
         --cmdline="rw console=ttyS0,115200 console=tty0" \
-        --output=/target-root/boot/EFI/Linux/fsdk-it.efi
-      cp /target-root/boot/EFI/Linux/fsdk-it.efi /layer/usr/lib/fsdk-it/fsdk-it.efi
+        --output=/target-root/boot/EFI/Linux/microraptor.efi
+      cp /target-root/boot/EFI/Linux/microraptor.efi /layer/usr/lib/microraptor/microraptor.efi
 
     # -- Step 1c: Configure installer services and users ------------------
     - |
@@ -149,13 +149,13 @@ config:
     - |
       set -eux
       # Write the installer wrapper script
-      cat > /layer/usr/bin/fsdk-it-sysinstall << 'EOF'
+      cat > /layer/usr/bin/microraptor-sysinstall << 'EOF'
       #!/bin/bash
       set -euo pipefail
 
       # Auto-detect target disk for unattended install (any raw disk of type "disk" that is not the installer, is not read-only, and has size > 0)
       TARGET_DISK=""
-      INSTALLER_PART="$(readlink -f /dev/disk/by-partlabel/fsdk-it-installer-data 2>/dev/null || true)"
+      INSTALLER_PART="$(readlink -f /dev/disk/by-partlabel/microraptor-installer-data 2>/dev/null || true)"
 
       while read -r name type ro size; do
         [ "${type}" = "disk" ] || continue
@@ -178,7 +178,7 @@ config:
         if [ -n "${TARGET_DISK}" ]; then
           echo "==> Auto-detected target disk: ${TARGET_DISK}"
           exec /usr/bin/systemd-sysinstall \
-            --kernel=/usr/lib/fsdk-it/fsdk-it.efi \
+            --kernel=/usr/lib/microraptor/microraptor.efi \
             --erase=yes \
             --confirm=no \
             --summary=no \
@@ -193,7 +193,7 @@ config:
       else
         echo "==> Running in INTERACTIVE mode..."
         exec /usr/bin/systemd-sysinstall \
-          --kernel=/usr/lib/fsdk-it/fsdk-it.efi \
+          --kernel=/usr/lib/microraptor/microraptor.efi \
           --variables=yes \
           --reboot=yes \
           --mute-console=yes \
@@ -202,7 +202,7 @@ config:
           --copy-timezone=yes
       fi
       EOF
-      chmod +x /layer/usr/bin/fsdk-it-sysinstall
+      chmod +x /layer/usr/bin/microraptor-sysinstall
 
       mkdir -p /layer/etc/systemd/system/systemd-sysinstall.service.d
       cat > /layer/etc/systemd/system/systemd-sysinstall.service.d/override.conf << 'EOF'
@@ -212,7 +212,7 @@ config:
 
       [Service]
       ExecStart=
-      ExecStart=/usr/bin/fsdk-it-sysinstall
+      ExecStart=/usr/bin/microraptor-sysinstall
       EOF
 
     # -- Step 2: Wire default.target -> system-install.target ------------
@@ -226,7 +226,7 @@ config:
         echo "ERROR: system-install.target.wants/systemd-sysinstall.service is missing from the staged rootfs! FSDK systemd must be built with -Dsysinstall=true." >&2
         exit 1
       fi
-      if [ ! -f /layer/usr/lib/fsdk-it/fsdk-it.efi ]; then
+      if [ ! -f /layer/usr/lib/microraptor/microraptor.efi ]; then
         echo "ERROR: target UKI is missing from the staged rootfs!" >&2
         exit 1
       fi
@@ -290,17 +290,17 @@ config:
     # can copy it into the installer media data partition.
     - |
       set -eu
-      zstd -d /ddi/fsdk-it-ddi-*.raw.zst -o /layer/fsdk-it-ddi.raw
-      ls -lh /layer/fsdk-it-ddi.raw
+      zstd -d /ddi/microraptor-ddi-*.raw.zst -o /layer/microraptor-ddi.raw
+      ls -lh /layer/microraptor-ddi.raw
 
     # -- Step 6: Assemble installer GPT disk image ------------------------
     # Two-partition layout:
     #   10-esp.conf:      ESP (1G) - UKI lives here; boots the installer
-    #   20-ddi-data.conf: Data (XFS) - fsdk-it-ddi.raw copied here block-for-block
+    #   20-ddi-data.conf: Data (XFS) - microraptor-ddi.raw copied here block-for-block
     - |
       set -eu
       OUT="%{install-root}"
-      FNAME="fsdk-it-installer-%{installer-version}.raw"
+      FNAME="microraptor-installer-%{installer-version}.raw"
       mkdir -p /installer-media-repart.d
 
       cat > /installer-media-repart.d/10-esp.conf << 'RCONF'
@@ -315,8 +315,8 @@ config:
       cat > /installer-media-repart.d/20-ddi-data.conf << 'RCONF'
       [Partition]
       Type=linux-generic
-      Label=fsdk-it-installer-data
-      CopyBlocks=/fsdk-it-ddi.raw
+      Label=microraptor-installer-data
+      CopyBlocks=/microraptor-ddi.raw
       RCONF
 
       systemd-repart \
@@ -329,25 +329,25 @@ config:
       ls -lh "${OUT}/${FNAME}"
 
       # Clean up DDI from /layer - it's now in the installer media partition.
-      rm -f /layer/fsdk-it-ddi.raw
+      rm -f /layer/microraptor-ddi.raw
 
     # -- Step 7: Compress + checksum --------------------------------------
     - |
       set -eux
       cd "%{install-root}"
-      FNAME="fsdk-it-installer-%{installer-version}.raw"
+      FNAME="microraptor-installer-%{installer-version}.raw"
       zstd --rm -T0 -19 -q "${FNAME}" -o "${FNAME}.zst"
 
       # Also export the target UKI (.efi) for GitHub Releases and systemd-sysupdate
-      cp /layer/usr/lib/fsdk-it/fsdk-it.efi "fsdk-it-%{installer-version}.efi"
+      cp /layer/usr/lib/microraptor/microraptor.efi "microraptor-%{installer-version}.efi"
       # Export raw PXE inputs alongside the UKI. PXE users supply their own
       # kernel command line, so these remain separate from the fixed-cmdline UKI.
       INSTALLER_KVER="$(basename "$(find /layer/usr/lib/modules -mindepth 1 -maxdepth 1 -type d | head -n1)")"
-      cp "/layer/usr/lib/modules/${INSTALLER_KVER}/vmlinuz" "fsdk-it-pxe-vmlinuz-%{installer-version}"
-      cp /installer.cpio.gz "fsdk-it-pxe-initrd-%{installer-version}.cpio.gz"
+      cp "/layer/usr/lib/modules/${INSTALLER_KVER}/vmlinuz" "microraptor-pxe-vmlinuz-%{installer-version}"
+      cp /installer.cpio.gz "microraptor-pxe-initrd-%{installer-version}.cpio.gz"
 
       sha256sum --binary "${FNAME}.zst" > SHA256SUMS
-      sha256sum --binary "fsdk-it-%{installer-version}.efi" >> SHA256SUMS
-      sha256sum --binary "fsdk-it-pxe-vmlinuz-%{installer-version}" >> SHA256SUMS
-      sha256sum --binary "fsdk-it-pxe-initrd-%{installer-version}.cpio.gz" >> SHA256SUMS
+      sha256sum --binary "microraptor-%{installer-version}.efi" >> SHA256SUMS
+      sha256sum --binary "microraptor-pxe-vmlinuz-%{installer-version}" >> SHA256SUMS
+      sha256sum --binary "microraptor-pxe-initrd-%{installer-version}.cpio.gz" >> SHA256SUMS
       ls -lh

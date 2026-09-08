@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enforce the k0s version invariant for fsdk-it.
+"""Enforce the k0s version invariant for microraptor.
 
 k0s is an independently-pinned third-party payload, not an OS asset, so it is
 versioned on its own axis. ``include/k0s.yml`` is the single source of truth:

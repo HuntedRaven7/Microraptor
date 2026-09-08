@@ -1,12 +1,12 @@
 [Transfer]
-Title=fsdk-it UKI
+Title=Microraptor UKI
 
 [Source]
 Type=url-file
-Path=https://github.com/HuntedRaven7/fsdk-it/releases/latest/download/
-MatchPattern=fsdk-it-@v.efi
+Path=https://github.com/HuntedRaven7/Microraptor/releases/latest/download/
+MatchPattern=Microraptor-@v.efi
 
 [Target]
 Type=file
 Path=/efi/EFI/Linux
-MatchPattern=fsdk-it-@v.efi
+MatchPattern=Microraptor-@v.efi

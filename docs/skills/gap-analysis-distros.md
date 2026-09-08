@@ -1,6 +1,6 @@
 ---
 name: gap-analysis-distros
-description: Comparing fsdk-it to other server OSes.
+description: Comparing microraptor to other server OSes.
 metadata:
   type: reference
   status: stable
@@ -10,15 +10,15 @@ metadata:
 
 ## When to Use
 
-- Comparing fsdk-it to other server OSes.
+- Comparing microraptor to other server OSes.
 
 ## When NOT to Use
 
-- Design decisions within fsdk-it itself.
+- Design decisions within microraptor itself.
 
 ## Comparison
 
-| Feature | fsdk-it | Flatcar Container Linux | Fedora CoreOS | Talos |
+| Feature | microraptor | Flatcar Container Linux | Fedora CoreOS | Talos |
 |---|---|---|---|---|
 | Base | FSDK (BuildStream 2) | Gentoo | Fedora | Go |
 | Image-based updates | Yes (A/B + sysupdate) | Yes | Yes | Yes |
