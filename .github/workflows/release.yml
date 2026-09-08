@@ -86,4 +86,7 @@ jobs:
             --notes "Automated release for microraptor v${TAG}" \
             --prerelease="${PRERELEASE}" \
             dist/release/* \
+            || true
+          gh release upload "${TAG}" \
+            dist/release/* \
             --clobber
