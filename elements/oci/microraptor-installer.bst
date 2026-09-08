@@ -127,6 +127,14 @@ config:
       mkdir -p /layer/boot
       ln -sf "../usr/lib/modules/${INSTALLER_KVER}/vmlinuz" /layer/boot/vmlinuz
 
+      # Ensure critical tools are present in the staged rootfs before packing
+      for tool in udevadm lsblk systemd-repart bootctl systemd-sysinstall; do
+        if ! [ -x "/layer/usr/bin/${tool}" ] && ! [ -x "/layer/usr/sbin/${tool}" ]; then
+          echo "ERROR: Critical tool '${tool}' is missing from the staged rootfs at /layer!" >&2
+          exit 1
+        fi
+      done
+
       # System users for networkd/resolved
       printf 'systemd-network:x:998:998:systemd Network Management:/run/systemd:/usr/sbin/nologin\nsystemd-resolve:x:997:997:systemd Resolver:/run/systemd:/usr/sbin/nologin\n' >> /layer/etc/passwd
       printf 'systemd-network:x:998:\nsystemd-resolve:x:997:\n' >> /layer/etc/group
