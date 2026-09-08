@@ -215,7 +215,7 @@ config:
       cat > /layer/etc/systemd/system/systemd-sysinstall.service.d/override.conf << 'EOF'
       [Unit]
       SuccessAction=poweroff
-      FailureAction=poweroff
+      FailureAction=reboot
 
       [Service]
       ExecStart=
