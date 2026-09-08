@@ -30,7 +30,7 @@ depends:
 
   # Kernel (installer boots from this; vmlinuz used as the UKI --linux= arg)
   - freedesktop-sdk.bst:components/linux.bst
-  - microraptor/linux-firmware-split.bst
+  - freedesktop-sdk.bst:components/linux-firmware.bst
 
   # repart.d configs describing the TARGET disk layout
   - installer/installer-repart.bst
