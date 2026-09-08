@@ -46,6 +46,12 @@ config:
 
       echo "Allocating XFS image of ${TARGET_BYTES} bytes"
       mkfs.xfs -f -L microraptor-root -p /layer "${OUT}/${FNAME}"
+      echo "mkfs.xfs exit=$?"
 
+      echo "Running zstd..."
+      which zstd || echo "zstd not found"
+      zstd --version || true
       zstd --rm -T0 -19 -q "${OUT}/${FNAME}" -o "${OUT}/${FNAME}.zst"
-      ls -lh "${OUT}/${FNAME}.zst"
+      echo "zstd exit=$?"
+      ls -lh "${OUT}/${FNAME}.zst" || echo "ls failed"
+      echo "After zstd/ls: exit=$?"
