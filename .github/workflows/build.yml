@@ -100,7 +100,7 @@ jobs:
           just export-sysext
 
       - name: Sign release SHA256SUMS manifest
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && secrets.SYSUPDATE_SIGNING_KEY != ''
         env:
           SYSUPDATE_SIGNING_KEY: ${{ secrets.SYSUPDATE_SIGNING_KEY }}
         run: |
@@ -115,6 +115,7 @@ jobs:
           trap 'rm -rf "$GNUPGHOME"' EXIT
           echo "$SYSUPDATE_SIGNING_KEY" | gpg --batch --import
           gpg --batch --yes --detach-sign --armor -o dist/release/SHA256SUMS.gpg dist/release/SHA256SUMS
+          echo "Release manifest signed successfully"
 
       - name: Resolve release version
         if: github.ref == 'refs/heads/main'
