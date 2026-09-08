@@ -135,7 +135,7 @@ jobs:
           retention-days: 1
 
   release:
-    if: ${{ github.ref == 'refs/heads/main' && needs.build.outputs.version != '' }}
+    if: ${{ github.ref == 'refs/heads/main' }}
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -154,6 +154,10 @@ jobs:
         run: |
           set -euo pipefail
           V="${{ needs.build.outputs.version }}"
+          if [ -z "${V}" ]; then
+            echo "ERROR: build job did not produce version output" >&2
+            exit 1
+          fi
           TAG="installer-v${V}"
           echo "Uploading release assets for tag: ${TAG}"
           gh release create "${TAG}" --title "microraptor v${V}" --notes "Automated release triggered by Renovate dependency update on main" --prerelease=false || true
