@@ -46,7 +46,8 @@ config:
       mkfs.xfs -f -L microraptor-root -p /layer "${OUT}/${FNAME}"
 
       zstd --rm -T0 -19 -q "${OUT}/${FNAME}" -o "${OUT}/${FNAME}.zst"
+      ls -lh "${OUT}/${FNAME}.zst"
       (
         cd "${OUT}"
-        sha256sum --binary "${FNAME}.zst" > SHA256SUMS
+        sha256sum "${FNAME}.zst" > SHA256SUMS
       )
