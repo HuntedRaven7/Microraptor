@@ -1,4 +1,4 @@
-name: Build DDI artifacts
+name: CI
 
 on:
   pull_request:
@@ -14,46 +14,11 @@ permissions:
   contents: read
 
 jobs:
-  track-refs:
-    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'renovate/')
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ github.event.pull_request.head.ref || github.ref }}
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-
-      - name: Set up just
-        uses: taiki-e/install-action@7b8d4719ee4aaa279bdf55df38dacb9ebfe12a6c
-        with:
-          tool: just
-
-      - name: Track and Resolve BuildStream Refs
-        env:
-          HEAD_REF: ${{ github.head_ref }}
-        run: |
-          set -euo pipefail
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          just bst source track freedesktop-sdk.bst || true
-          just bst source track gnome-build-meta.bst || true
-          if ! git diff --exit-code; then
-            git add elements/
-            git commit -m "chore: resolve BuildStream junction refs to git-describe format" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
-            git push origin "HEAD:${HEAD_REF}"
-          fi
-
   build:
     needs: track-refs
     if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
-    outputs:
-      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -99,38 +64,35 @@ jobs:
           just build-sysext
           just export-sysext
 
-      - name: Sign release SHA256SUMS manifest
-        if: github.ref == 'refs/heads/main'
+  track-refs:
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'renovate/')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+
+      - name: Set up just
+        uses: taiki-e/install-action@7b8d4719ee4aaa279bdf55df38dacb9ebfe12a6c
+        with:
+          tool: just
+
+      - name: Track and Resolve BuildStream Refs
         env:
-          SYSUPDATE_SIGNING_KEY: ${{ secrets.SYSUPDATE_SIGNING_KEY }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           set -euo pipefail
-          if [ -z "${SYSUPDATE_SIGNING_KEY:-}" ]; then
-            echo "Skipping signing: SYSUPDATE_SIGNING_KEY is not set"
-            exit 0
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          just bst source track freedesktop-sdk.bst || true
+          just bst source track gnome-build-meta.bst || true
+          if ! git diff --exit-code; then
+            git add elements/
+            git commit -m "chore: resolve BuildStream junction refs to git-describe format" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+            git push origin "HEAD:${HEAD_REF}"
           fi
-          mkdir -p dist/release
-          cp dist/microraptor-installer-*.raw.zst dist/microraptor-*.efi dist/release/
-          cp dist/ddi/microraptor-ddi-*.raw.zst dist/release/
-          cp dist/sysext/k0s-*.raw.zst dist/release/
-          (cd dist/release && sha256sum --binary -- * > SHA256SUMS)
-          GNUPGHOME=$(mktemp -d)
-          export GNUPGHOME
-          trap 'rm -rf "$GNUPGHOME"' EXIT
-          echo "$SYSUPDATE_SIGNING_KEY" | gpg --batch --import
-          gpg --batch --yes --detach-sign --armor -o dist/release/SHA256SUMS.gpg dist/release/SHA256SUMS
-          echo "Release manifest signed successfully"
-
-      - name: Resolve release version
-        id: version
-        run: echo "version=$(just version)" >> "$GITHUB_OUTPUT"
-
-      - name: Upload release assets artifact
-        if: github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: release-assets
-          path: dist/release/
-          if-no-files-found: error
-          retention-days: 1
-# test
