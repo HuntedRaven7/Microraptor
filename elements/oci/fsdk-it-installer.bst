@@ -35,6 +35,7 @@ build-depends:
   - freedesktop-sdk.bst:components/kmod.bst
   - freedesktop-sdk.bst:components/cpio.bst      # newc cpio archive creation
   - freedesktop-sdk.bst:components/findutils.bst  # find for cpio pipe
+  - freedesktop-sdk.bst:components/gzip.bst       # compress initrd
   # grep/sed are required by dracut/dracut-install even though our commands don't name them.
   - freedesktop-sdk.bst:components/grep.bst
   - freedesktop-sdk.bst:components/sed.bst
@@ -239,10 +240,6 @@ config:
     - |
       set -eux
       export PATH="/usr/bin:/bin:/usr/sbin:/sbin"
-      echo "DEBUG: PATH=$PATH"
-      which cpio || echo "DEBUG: cpio not in PATH"
-      which gzip || echo "DEBUG: gzip not in PATH"
-      ls -la /usr/bin/cpio /usr/bin/gzip 2>/dev/null || echo "DEBUG: absolute paths not found"
 
       # Clean up bloat from /layer before packing (reduces initrd size!)
       rm -rf /layer/usr/lib/debug /layer/usr/share/doc /layer/usr/share/man /layer/usr/include
@@ -267,6 +264,7 @@ config:
       ( cd /layer && find . -print0 \
           | /usr/bin/cpio --null --create --format=newc ) \
         | /usr/bin/gzip -9 -c > /installer.cpio.gz
+      ls -lh /installer.cpio.gz
       ls -lh /installer.cpio.gz
 
     # -- Step 4: Build the UKI --------------------------------------------
