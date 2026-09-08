@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. 26.08.0)"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark as prerelease?"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: release-assets
+          path: dist/release
+
+      - name: Verify assets
+        run: |
+          set -euo pipefail
+          ls -lh dist/release/
+          test -f dist/release/SHA256SUMS
+
+      - name: Create or update GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag }}"
+          PRERELEASE="${{ inputs.prerelease }}"
+          if [ -z "${TAG}" ]; then
+            echo "ERROR: tag input is required" >&2
+            exit 1
+          fi
+          echo "Creating/updating release for tag: ${TAG}"
+          gh release create "${TAG}" \
+            --title "microraptor v${TAG}" \
+            --notes "Automated release for microraptor v${TAG}" \
+            --prerelease="${PRERELEASE}" \
+            dist/release/* \
+            --clobber

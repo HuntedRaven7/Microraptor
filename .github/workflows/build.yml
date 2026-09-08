@@ -133,34 +133,4 @@ jobs:
           path: dist/release/
           if-no-files-found: error
           retention-days: 1
-
-  release:
-    needs: build
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    permissions:
-      contents: write
-    steps:
-      - name: Download release assets
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          name: release-assets
-          path: dist/release
-
-      - name: Upload assets to GitHub Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          V="${{ needs.build.outputs.version }}"
-          if [ -z "${V}" ]; then
-            echo "ERROR: build job did not produce version output" >&2
-            exit 1
-          fi
-          TAG="installer-v${V}"
-          echo "Uploading release assets for tag: ${TAG}"
-          gh release create "${TAG}" --title "microraptor v${V}" --notes "Automated release triggered by Renovate dependency update on main" --prerelease=false || true
-          gh release upload "${TAG}" \
-            dist/release/* \
-            --clobber
 # test
