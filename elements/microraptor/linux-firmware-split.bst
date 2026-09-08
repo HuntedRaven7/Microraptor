@@ -14,15 +14,20 @@ config:
     - doc
     - locale
 
-  # Only include CPU microcode, virtual, net, and amdgpu/APU firmware needed for servers
+  # Only include CPU microcode, virtual, net, and Intel/AMD firmware needed for servers
   include:
     # CPU Microcodes (intel & amd)
     - /usr/lib/firmware/intel-ucode/**
     - /usr/lib/firmware/amd-ucode/**
 
-    # APU / APU Graphics
-    - /usr/lib/firmware/amdgpu/**
-    - /usr/lib/firmware/amd/**
+    # Intel GPU / display
+    - /usr/lib/firmware/i915/**
+
+    # Intel audio
+    - /usr/lib/firmware/intel/audio/**
+
+    # Intel networking
+    - /usr/lib/firmware/intel/igc/**
 
     # VirtIO / KubeVirt guest hardware support
     - /usr/lib/firmware/virtio/**
