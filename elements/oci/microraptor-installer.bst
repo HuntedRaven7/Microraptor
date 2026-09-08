@@ -204,6 +204,13 @@ config:
       EOF
       chmod +x /layer/usr/bin/microraptor-sysinstall
 
+      # DHCP on all ethernet interfaces in the installer live environment
+      mkdir -p /layer/etc/systemd/network
+      printf '[Match]\nName=en* eth* ens* enp*\n\n[Network]\nDHCP=yes\n' \
+        > /layer/etc/systemd/network/80-dhcp.network
+      chmod 755 /layer/usr/lib/systemd/network 2>/dev/null || true
+      cp /layer/etc/systemd/network/80-dhcp.network /layer/usr/lib/systemd/network/ 2>/dev/null || true
+
       mkdir -p /layer/etc/systemd/system/systemd-sysinstall.service.d
       cat > /layer/etc/systemd/system/systemd-sysinstall.service.d/override.conf << 'EOF'
       [Unit]
