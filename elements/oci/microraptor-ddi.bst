@@ -47,8 +47,5 @@ config:
 
       zstd --rm -T0 -19 -q "${OUT}/${FNAME}" -o "${OUT}/${FNAME}.zst"
       ls -lh "${OUT}/${FNAME}.zst"
-      cd "${OUT}"
-      ls -lh "${FNAME}.zst"
-      sha256sum "${FNAME}.zst" > SHA256SUMS
-      echo "sha256sum exit=$?"
-      ls -lh SHA256SUMS
+      python3 -c "import hashlib; data = open('${OUT}/${FNAME}.zst', 'rb').read(); print(hashlib.sha256(data).hexdigest() + '  ${FNAME}.zst')" > "${OUT}/SHA256SUMS"
+      ls -lh "${OUT}/SHA256SUMS"
