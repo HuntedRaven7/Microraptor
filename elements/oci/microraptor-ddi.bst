@@ -43,7 +43,7 @@ config:
       truncate -s "${TARGET_BYTES}" "${OUT}/${FNAME}"
 
       echo "Allocating XFS image of ${TARGET_BYTES} bytes"
-      mkfs.xfs -f -L microraptor-root -p /layer "${OUT}/${FNAME}"
+      mkfs.xfs -f -L microraptor -p /layer "${OUT}/${FNAME}"
 
       zstd --rm -T0 -19 -q "${OUT}/${FNAME}" -o "${OUT}/${FNAME}.zst"
       (
