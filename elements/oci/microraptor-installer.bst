@@ -323,8 +323,8 @@ config:
       Type=esp
       Format=vfat
       CopyFiles=/boot/efi:/
-      SizeMinBytes=1024M
-      SizeMaxBytes=1024M
+      SizeMinBytes=2G
+      SizeMaxBytes=2G
       RCONF
 
       cat > /installer-media-repart.d/20-ddi-data.conf << 'RCONF'
