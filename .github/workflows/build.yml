@@ -122,7 +122,6 @@ jobs:
           echo "Release manifest signed successfully"
 
       - name: Resolve release version
-        if: github.ref == 'refs/heads/main'
         id: version
         run: echo "version=$(just version)" >> "$GITHUB_OUTPUT"
 
@@ -136,7 +135,7 @@ jobs:
           retention-days: 1
 
   release:
-    if: ${{ github.ref == 'refs/heads/main' }}
+    if: ${{ github.ref == 'refs/heads/main' && needs.build.outputs.version != '' }}
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 30
