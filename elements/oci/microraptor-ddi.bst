@@ -49,9 +49,11 @@ config:
       echo "mkfs.xfs exit=$?"
 
       echo "Running zstd..."
-      which zstd || echo "zstd not found"
+      which zstd
       zstd --version || true
-      zstd --rm -T0 -19 -q "${OUT}/${FNAME}" -o "${OUT}/${FNAME}.zst"
+      echo "Compressing with zstd..."
+      zstd -c -q "${OUT}/${FNAME}" > "${OUT}/${FNAME}.zst"
       echo "zstd exit=$?"
       ls -lh "${OUT}/${FNAME}.zst" || echo "ls failed"
-      echo "After zstd/ls: exit=$?"
+      rm -f "${OUT}/${FNAME}"
+      echo "After zstd: exit=$?"
