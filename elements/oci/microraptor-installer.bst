@@ -158,57 +158,57 @@ config:
       set -eux
       # Write the installer wrapper script
       cat > /layer/usr/bin/microraptor-sysinstall << 'EOF'
-      #!/bin/bash
-      set -euo pipefail
+      #!/bin/sh
+      set -eu
 
-      # Auto-detect target disk for unattended install (any raw disk of type "disk" that is not the installer, is not read-only, and has size > 0)
       TARGET_DISK=""
       INSTALLER_PART="$(readlink -f /dev/disk/by-partlabel/microraptor-installer-data 2>/dev/null || true)"
 
-      while read -r name type ro size; do
+      lsblk -p -d -n -o NAME,TYPE,RO,SIZE -b | while read -r name type ro size; do
         [ "${type}" = "disk" ] || continue
         [ "${ro}" = "0" ] || continue
         [ "${size}" -gt 0 ] || continue
 
-        # Skip the disk containing the installer partition
-        if [ -n "${INSTALLER_PART}" ] && [[ "${INSTALLER_PART}" == "${name}"* ]]; then
-          continue
-        fi
+        case "${INSTALLER_PART}" in
+          "${name}"*) continue ;;
+        esac
 
         TARGET_DISK="${name}"
         break
-      done < <(lsblk -p -d -n -o NAME,TYPE,RO,SIZE -b)
+      done
 
-      # Check for unattended in kernel command line
       CMDLINE="$(cat /proc/cmdline 2>/dev/null || true)"
-      if [[ " ${CMDLINE} " == *" unattended "* ]]; then
-        echo "==> Running in UNATTENDED mode..."
-        if [ -n "${TARGET_DISK}" ]; then
-          echo "==> Auto-detected target disk: ${TARGET_DISK}"
+      case " ${CMDLINE} " in
+        *" unattended "*)
+          echo "==> Running in UNATTENDED mode..."
+          if [ -n "${TARGET_DISK}" ]; then
+            echo "==> Auto-detected target disk: ${TARGET_DISK}"
+            exec /usr/bin/systemd-sysinstall \
+              --kernel=/usr/lib/microraptor/microraptor.efi \
+              --erase=yes \
+              --confirm=no \
+              --summary=no \
+              --variables=yes \
+              --reboot=no \
+              --mute-console=yes \
+              "${TARGET_DISK}" < /dev/null
+          else
+            echo "ERROR: No suitable target disk found for unattended installation!" >&2
+            exit 1
+          fi
+          ;;
+        *)
+          echo "==> Running in INTERACTIVE mode..."
           exec /usr/bin/systemd-sysinstall \
             --kernel=/usr/lib/microraptor/microraptor.efi \
-            --erase=yes \
-            --confirm=no \
-            --summary=no \
             --variables=yes \
-            --reboot=no \
+            --reboot=yes \
             --mute-console=yes \
-            "${TARGET_DISK}" < /dev/null
-        else
-          echo "ERROR: No suitable target disk found for unattended installation!" >&2
-          exit 1
-        fi
-      else
-        echo "==> Running in INTERACTIVE mode..."
-        exec /usr/bin/systemd-sysinstall \
-          --kernel=/usr/lib/microraptor/microraptor.efi \
-          --variables=yes \
-          --reboot=yes \
-          --mute-console=yes \
-          --copy-locale=yes \
-          --copy-keymap=yes \
-          --copy-timezone=yes
-      fi
+            --copy-locale=yes \
+            --copy-keymap=yes \
+            --copy-timezone=yes
+          ;;
+      esac
       EOF
       chmod +x /layer/usr/bin/microraptor-sysinstall
 

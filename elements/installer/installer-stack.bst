@@ -14,8 +14,6 @@ description: |
 depends:
   # Base runtime
   - freedesktop-sdk.bst:public-stacks/runtime-minimal.bst
-  - freedesktop-sdk.bst:components/bash.bst
-  - freedesktop-sdk.bst:components/coreutils.bst
   - freedesktop-sdk.bst:components/ca-certificates.bst
   - freedesktop-sdk.bst:components/tzdata.bst
   - freedesktop-sdk.bst:integration/extra-fs.bst
