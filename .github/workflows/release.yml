@@ -19,22 +19,55 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 180
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
-      - name: Download build artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - name: Set up just
+        uses: taiki-e/install-action@7b8d4719ee4aaa279bdf55df38dacb9ebfe12a6c
         with:
-          name: release-assets
-          path: dist/release
+          tool: just
 
-      - name: Verify assets
+      - name: Set up runner disk space
         run: |
           set -euo pipefail
+          sudo mkdir -p /mnt/podman /mnt/buildstream
+          sudo chown -R "$USER:$USER" /mnt/podman /mnt/buildstream
+          mkdir -p ~/.config/containers
+          cat > ~/.config/containers/storage.conf <<EOF
+          [storage]
+          driver = "overlay"
+          runroot = "/run/user/1001"
+          graphroot = "/mnt/podman"
+          EOF
+          mkdir -p ~/.cache
+          ln -sf /mnt/buildstream ~/.cache/buildstream
+
+      - name: Build and export DDI OS image
+        run: |
+          just build-ddi
+          just export-ddi
+
+      - name: Build and export live installer & target UKI
+        run: |
+          just build-installer
+          just export-installer
+
+      - name: Build and export k0s systemd-sysext
+        run: |
+          just build-sysext
+          just export-sysext
+
+      - name: Prepare release assets
+        run: |
+          set -euo pipefail
+          mkdir -p dist/release
+          cp dist/microraptor-installer-*.raw.zst dist/microraptor-*.efi dist/release/
+          cp dist/ddi/microraptor-ddi-*.raw.zst dist/release/
+          cp dist/sysext/k0s-*.raw.zst dist/release/
+          (cd dist/release && sha256sum --binary -- * > SHA256SUMS)
           ls -lh dist/release/
-          test -f dist/release/SHA256SUMS
 
       - name: Create or update GitHub Release
         env:
