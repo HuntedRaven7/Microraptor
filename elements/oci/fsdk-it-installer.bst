@@ -261,8 +261,8 @@ config:
       fi
 
       ( cd /layer && find . -print0 \
-          | cpio --null --create --format=newc ) \
-        | gzip -9 -c > /installer.cpio.gz
+          | /usr/bin/cpio --null --create --format=newc ) \
+        | /usr/bin/gzip -9 -c > /installer.cpio.gz
       ls -lh /installer.cpio.gz
 
     # -- Step 4: Build the UKI --------------------------------------------
