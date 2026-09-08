@@ -239,6 +239,10 @@ config:
     - |
       set -eux
       export PATH="/usr/bin:/bin:/usr/sbin:/sbin"
+      echo "DEBUG: PATH=$PATH"
+      which cpio || echo "DEBUG: cpio not in PATH"
+      which gzip || echo "DEBUG: gzip not in PATH"
+      ls -la /usr/bin/cpio /usr/bin/gzip 2>/dev/null || echo "DEBUG: absolute paths not found"
 
       # Clean up bloat from /layer before packing (reduces initrd size!)
       rm -rf /layer/usr/lib/debug /layer/usr/share/doc /layer/usr/share/man /layer/usr/include
