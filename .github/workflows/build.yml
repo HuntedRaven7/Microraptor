@@ -88,6 +88,8 @@ jobs:
         run: |
           just build-ddi
           just export-ddi
+          cd dist/ddi
+          sha256sum --binary microraptor-ddi-*.raw.zst > SHA256SUMS
 
       - name: Build and export live installer & target UKI
         run: |
