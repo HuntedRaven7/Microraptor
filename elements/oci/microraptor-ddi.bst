@@ -48,12 +48,16 @@ config:
       mkfs.xfs -f -L microraptor-root -p /layer "${OUT}/${FNAME}"
       echo "mkfs.xfs exit=$?"
 
-      echo "Running zstd..."
-      which zstd
+      echo "Running compression..."
+      which zstd || echo "zstd not found"
       zstd --version || true
-      echo "Compressing with zstd..."
-      zstd -c -q "${OUT}/${FNAME}" > "${OUT}/${FNAME}.zst"
-      echo "zstd exit=$?"
-      ls -lh "${OUT}/${FNAME}.zst" || echo "ls failed"
+      if zstd -c -q "${OUT}/${FNAME}" > "${OUT}/${FNAME}.zst" 2>/tmp/zstd.err; then
+        echo "zstd compression succeeded"
+      else
+        echo "zstd failed: $(cat /tmp/zstd.err)"
+        echo "Falling back to gzip..."
+        gzip -c "${OUT}/${FNAME}" > "${OUT}/${FNAME}.gz"
+      fi
+      ls -lh "${OUT}/${FNAME}.zst" "${OUT}/${FNAME}.gz" 2>/dev/null || true
       rm -f "${OUT}/${FNAME}"
-      echo "After zstd: exit=$?"
+      echo "Compression complete"
