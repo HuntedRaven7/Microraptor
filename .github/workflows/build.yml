@@ -100,11 +100,15 @@ jobs:
           just export-sysext
 
       - name: Sign release SHA256SUMS manifest
-        if: github.ref == 'refs/heads/main' && secrets.SYSUPDATE_SIGNING_KEY != ''
+        if: github.ref == 'refs/heads/main'
         env:
           SYSUPDATE_SIGNING_KEY: ${{ secrets.SYSUPDATE_SIGNING_KEY }}
         run: |
           set -euo pipefail
+          if [ -z "${SYSUPDATE_SIGNING_KEY:-}" ]; then
+            echo "Skipping signing: SYSUPDATE_SIGNING_KEY is not set"
+            exit 0
+          fi
           mkdir -p dist/release
           cp dist/microraptor-installer-*.raw.zst dist/microraptor-*.efi dist/release/
           cp dist/ddi/microraptor-ddi-*.raw.zst dist/release/
