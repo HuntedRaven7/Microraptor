@@ -5,6 +5,8 @@ build-depends:
   - freedesktop-sdk.bst:components/linux-firmware.bst
 
 config:
+  integrate: False
+
   # Exclude debug symbols, development files, and locales from composed output
   exclude:
     - debug
@@ -16,19 +18,19 @@ config:
   include:
     # CPU Microcodes (intel & amd)
     - /usr/lib/firmware/intel-ucode/**
-    - /usr/lib/firmware/amd-uccode/**
-    
-    # APU / APU Graphics (Ryzen AI MAX+ 395 and Strix Halo support on ghost)
+    - /usr/lib/firmware/amd-ucode/**
+
+    # APU / APU Graphics
     - /usr/lib/firmware/amdgpu/**
     - /usr/lib/firmware/amd/**
-    
+
     # VirtIO / KubeVirt guest hardware support
     - /usr/lib/firmware/virtio/**
-    
+
     # Standard Ethernet & Storage controllers
     - /usr/lib/firmware/intel/e1000/**
     - /usr/lib/firmware/intel/e810/**
     - /usr/lib/firmware/realtek/**
-    
+
     # Regulatory database
     - /usr/lib/firmware/regulatory.db*
