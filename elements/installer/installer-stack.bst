@@ -29,7 +29,7 @@ depends:
   - freedesktop-sdk.bst:components/dosfstools.bst
 
   # Kernel (installer boots from this; vmlinuz used as the UKI --linux= arg)
-  - freedesktop-sdk.bst:components/linux.bst
+  - installer/ubuntu-kernel.bst
   - freedesktop-sdk.bst:components/linux-firmware.bst
 
   # repart.d configs describing the TARGET disk layout
