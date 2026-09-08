@@ -47,11 +47,8 @@ config:
 
       zstd --rm -T0 -19 -q "${OUT}/${FNAME}" -o "${OUT}/${FNAME}.zst"
       ls -lh "${OUT}/${FNAME}.zst"
-      which sha256sum || echo "DEBUG: sha256sum not found"
-      sha256sum --version || true
-      (
-        cd "${OUT}"
-        ls -lh "${FNAME}.zst"
-        sha256sum "${FNAME}.zst" > SHA256SUMS
-        echo "DEBUG: sha256sum exit=$?"
-      )
+      cd "${OUT}"
+      ls -lh "${FNAME}.zst"
+      sha256sum "${FNAME}.zst" > SHA256SUMS
+      echo "sha256sum exit=$?"
+      ls -lh SHA256SUMS
