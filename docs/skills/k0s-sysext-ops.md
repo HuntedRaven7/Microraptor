@@ -22,17 +22,14 @@ metadata:
 On a running microraptor system:
 
 ```bash
-# Trigger systemd-sysupdate to pull the k0s systemd-sysext if missing
-systemd-sysupdate update || true
+# 1. Fetch the extension image into persistent k0s staging.
+systemd-sysupdate --component=k0s update
 
-# Setup k0s configuration directory
-install -d -m 0755 /etc/k0s
+# 2. Copy it to the ephemeral sysext scan directory and merge into /usr.
+install -D -m 0644 /var/lib/k0s/k0s.raw /run/extensions/k0s.raw
+systemd-sysext merge
 
-# Trigger systemd-sysext to merge extensions into /usr immediately
-systemctl enable --now systemd-sysext.service || true
-systemd-sysext merge || true
-
-# Enable and start the controller service
+# 3. Enable and start the controller service
 systemctl enable --now k0scontroller.service
 ```
 

@@ -117,7 +117,7 @@ config:
       ldconfig || true
 
       dracut -v --reproducible --no-machineid --no-hostonly \
-        --add-drivers "virtio virtio_blk virtio_pci virtio_scsi xfs erofs overlay" \
+        --add-drivers "virtio virtio_blk virtio_pci virtio_scsi nvme nvme_core xfs erofs overlay" \
         --filesystems "xfs vfat" \
         --kmoddir "/target-root/usr/lib/modules/${TARGET_KVER}" \
         --kernel-image "${TARGET_KERNEL}" \
@@ -180,6 +180,11 @@ config:
       TARGET_DISK=""
       INSTALLER_PART="$(readlink -f /dev/disk/by-partlabel/microraptor-installer-data 2>/dev/null || true)"
 
+      # Ensure NVMe modules are loaded and block devices enumerated before inspecting disks
+      modprobe -q nvme || true
+      modprobe -q nvme_core || true
+      udevadm settle --timeout=15 || true
+
       lsblk -p -d -n -o NAME,TYPE,RO,SIZE -b | while read -r name type ro size; do
         [ "${type}" = "disk" ] || continue
         [ "${ro}" = "0" ] || continue
@@ -238,6 +243,8 @@ config:
       mkdir -p /layer/etc/systemd/system/systemd-sysinstall.service.d
       cat > /layer/etc/systemd/system/systemd-sysinstall.service.d/override.conf << 'EOF'
       [Unit]
+      After=systemd-udev-settle.service
+      Wants=systemd-udev-settle.service
       SuccessAction=poweroff
       FailureAction=poweroff
 
@@ -282,10 +289,12 @@ config:
       rm -rf /layer/usr/lib/debug /layer/usr/share/doc /layer/usr/share/man /layer/usr/include
       rm -rf /layer/usr/share/locale /layer/usr/share/i18n
       find /layer -type f -name '*.debug' -delete
+      find /layer -type f -name '*.a' -delete
 
       # Strip unneeded large kernel modules (GPU, wireless, sound, media, bluetooth)
       KVER=$(ls /layer/usr/lib/modules | head -1)
       if [ -n "${KVER}" ]; then
+        rm -f "/layer/usr/lib/modules/${KVER}/vmlinux" "/layer/usr/lib/modules/${KVER}/System.map"
         MOD_DIR="/layer/usr/lib/modules/${KVER}/kernel"
         if [ -d "${MOD_DIR}" ]; then
           rm -rf "${MOD_DIR}/drivers/gpu"

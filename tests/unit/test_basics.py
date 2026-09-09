@@ -28,6 +28,11 @@ def test_os_stack_has_network_manager():
     assert "os-network-manager.bst" in stack, "os-stack missing os-network-manager.bst"
 
 
+def test_os_stack_includes_dbus_broker():
+    stack = (ROOT / "elements" / "microraptor" / "os-stack.bst").read_text()
+    assert "dbus-broker.bst" in stack, "os-stack missing dbus-broker.bst"
+
+
 def test_installer_repart_has_labels():
     for f in ["10-esp.conf", "20-root-a.conf", "30-var.conf"]:
         content = (ROOT / "files" / "installer" / "repart.d" / f).read_text()
@@ -66,6 +71,7 @@ def main():
         test_project_conf_has_release_version,
         test_freedesktop_sdk_ref_matches,
         test_os_stack_has_network_manager,
+        test_os_stack_includes_dbus_broker,
         test_installer_repart_has_labels,
         test_skills_index_exists,
         test_quadlets_present,
