@@ -55,6 +55,7 @@ validate:
     just bst show --deps all oci/microraptor-ddi.bst
     just bst show --deps all oci/microraptor-installer.bst
     just bst show --deps all oci/k0s-sysext.bst
+    just bst show --deps all oci/podman-quadlets-sysext.bst
 
 # Run the unit test suite (pytest + bats).
 [group('dev')]
@@ -107,6 +108,21 @@ export-pxe: export-installer
     @test -n "$(find dist/ -maxdepth 1 -type f -name 'microraptor-pxe-vmlinuz-*' -print -quit)" || { echo "ERROR: PXE kernel was not exported." >&2; exit 1; }
     @test -n "$(find dist/ -maxdepth 1 -type f -name 'microraptor-pxe-initrd-*.cpio.gz' -print -quit)" || { echo "ERROR: PXE initrd was not exported." >&2; exit 1; }
     @echo "==> wrote PXE artifacts:" && ls -lh dist/microraptor-pxe-*
+
+# -- podman-quadlets systemd-sysext --------------------------------------------------
+[group('sysext')]
+build-podman-quadlets-sysext:
+    just bst build oci/podman-quadlets-sysext.bst
+
+[group('sysext')]
+export-podman-quadlets-sysext: build-podman-quadlets-sysext
+    rm -rf dist/sysext dist/sysext-checkout
+    mkdir -p dist/sysext-checkout dist/sysext
+    just bst artifact checkout oci/podman-quadlets-sysext.bst --directory /src/dist/sysext-checkout
+    cp dist/sysext-checkout/podman-quadlets-*.raw.zst dist/sysext/
+    cp dist/sysext-checkout/SHA256SUMS dist/sysext/
+    rm -rf dist/sysext-checkout
+    @echo "==> wrote podman-quadlets sysext:" && ls -lh dist/sysext/
 
 # -- k0s systemd-sysext -------------------------------------------------------
 [group('sysext')]

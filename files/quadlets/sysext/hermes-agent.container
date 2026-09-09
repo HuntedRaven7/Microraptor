@@ -1,0 +1,19 @@
+[Unit]
+Description=Nous Hermes Agent
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/nousresearch/hermes-agent:0.1.0
+ContainerName=hermes-agent
+Publish=8000/tcp
+Environment=OPENAI_API_KEY_FILE=/run/secrets/openai-api-key
+Environment=HERMES_MODEL=gpt-4o-mini
+Exec=/usr/bin/podman systemd uproot %u /run/secrets:/run/secrets:ro
+ExecStop=/usr/bin/podman stop hermes-agent
+ExecStopPost=/usr/bin/podman rm hermes-agent
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

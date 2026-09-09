@@ -1,4 +1,6 @@
 variables:
+  quadlets-version: "26.08.0"
+
   pihole-image: "docker.io/pihole/pihole:2024.07"
   pihole-digest: "sha256:abc123"
 

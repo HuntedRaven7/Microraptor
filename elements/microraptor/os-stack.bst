@@ -41,6 +41,12 @@ depends:
   # Activate the optional k0s sysext after installation
   - microraptor/os-k0s-first-boot.bst
 
+  # podman-quadlets component system update configuration
+  - microraptor/os-quadlets-sysupdate.bst
+
+  # Activate the optional podman-quadlets sysext after installation
+  - microraptor/os-quadlets-first-boot.bst
+
   # Public keyring for verifying SHA256SUMS manifests from GitHub Releases
   - microraptor/os-sysupdate-keys.bst
 
@@ -66,5 +72,4 @@ depends:
   # Console issue banner
   - microraptor/os-issue.bst
 
-  # Podman Quadlets for common services
-  - microraptor/os-containers.bst
+  # Podman Quadlets are deployed optionally via the podman-quadlets sysext

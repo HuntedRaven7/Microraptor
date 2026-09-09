@@ -49,9 +49,11 @@ def test_quadlets_present():
         assert (ROOT / "files" / "os" / "containers" / "systemd" / "templates" / q).exists(), f"Missing quadlet template: {q}"
 
 
-def test_os_stack_includes_containers():
+def test_os_stack_no_longer_installs_quadlets_base():
     stack = (ROOT / "elements" / "microraptor" / "os-stack.bst").read_text()
-    assert "os-containers.bst" in stack, "os-stack missing os-containers.bst"
+    assert "os-containers.bst" not in stack, "quadlets should be optional via sysext"
+    assert "os-quadlets-sysupdate.bst" in stack, "os-stack missing os-quadlets-sysupdate.bst"
+    assert "os-quadlets-first-boot.bst" in stack, "os-stack missing os-quadlets-first-boot.bst"
 
 
 def test_quadlets_yml_has_versions():
@@ -75,7 +77,7 @@ def main():
         test_installer_repart_has_labels,
         test_skills_index_exists,
         test_quadlets_present,
-        test_os_stack_includes_containers,
+        test_os_stack_no_longer_installs_quadlets_base,
         test_quadlets_yml_has_versions,
         test_tailscale_quadlet_present,
     ]
