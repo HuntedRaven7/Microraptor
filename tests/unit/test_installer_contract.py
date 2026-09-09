@@ -121,6 +121,7 @@ def test_installer_loads_storage_drivers_and_settles_udev() -> None:
     assert "modprobe -q mmc_core || true" in installer_element
     assert "modprobe -q mmc_block || true" in installer_element
     assert "modprobe -q sdhci || true" in installer_element
+    assert "modprobe -q sdhci_acpi || true" in installer_element
     assert "modprobe -q uas || true" in installer_element
     assert "modprobe -q usb-storage || true" in installer_element
     assert "udevadm settle --timeout=15 || true" in installer_element

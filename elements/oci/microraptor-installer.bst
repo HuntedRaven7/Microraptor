@@ -198,13 +198,13 @@ config:
       modprobe -q mmc_core || true
       modprobe -q mmc_block || true
       modprobe -q sdhci || true
+      modprobe -q sdhci_acpi || true
       modprobe -q uas || true
       modprobe -q usb-storage || true
       udevadm settle --timeout=15 || true
 
       lsblk -p -d -n -o NAME,TYPE,RO,SIZE -b | while read -r name type ro size; do
         [ "${type}" = "disk" ] || continue
-        [ "${ro}" = "0" ] || continue
         [ "${size}" -gt 0 ] || continue
 
         case "${INSTALLER_PART}" in
