@@ -79,7 +79,12 @@ config:
       done
 
       # systemd-native initrd: /init -> PID 1
-      ln -sf usr/lib/systemd/systemd /layer/init
+      cat > /layer/init << 'EOF'
+      #!/bin/sh
+      echo "init: starting systemd"
+      exec /usr/lib/systemd/systemd
+      EOF
+      chmod +x /layer/init
       # Mount points needed by the installer service
       mkdir -p /layer/efi /layer/mnt/esp /layer/mnt/root /layer/run/installer
       mkdir -p /layer/usr/lib/microraptor
@@ -117,7 +122,7 @@ config:
       ldconfig || true
 
       dracut -v --reproducible --no-machineid --no-hostonly \
-        --add-drivers "virtio virtio_blk virtio_pci virtio_scsi nvme nvme_core xfs erofs overlay" \
+        --add-drivers "virtio virtio_blk virtio_pci virtio_scsi nvme nvme_core ahci libata sd_mod mmc_core mmc_block sdhci uas usb-storage xfs erofs overlay" \
         --filesystems "xfs vfat" \
         --kmoddir "/target-root/usr/lib/modules/${TARGET_KVER}" \
         --kernel-image "${TARGET_KERNEL}" \
@@ -169,6 +174,10 @@ config:
       mkdir -p /layer/etc/systemd/system
       ln -sf /dev/null /layer/etc/systemd/system/systemd-firstboot.service
 
+      # Prevent screen from turning off when laptop lid closes
+      mkdir -p /layer/etc/systemd/logind.conf.d
+      printf '[Login]\nHandleLidSwitch=ignore\nHandleLidSwitchExternalPower=ignore\n' > /layer/etc/systemd/logind.conf.d/noclose.conf
+
     # -- Step 1d: Configure installer services and users ------------------
     - |
       set -eux
@@ -180,9 +189,17 @@ config:
       TARGET_DISK=""
       INSTALLER_PART="$(readlink -f /dev/disk/by-partlabel/microraptor-installer-data 2>/dev/null || true)"
 
-      # Ensure NVMe modules are loaded and block devices enumerated before inspecting disks
+      # Ensure NVMe, SATA, USB, and eMMC/SD modules are loaded and block devices enumerated before inspecting disks
       modprobe -q nvme || true
       modprobe -q nvme_core || true
+      modprobe -q ahci || true
+      modprobe -q libata || true
+      modprobe -q sd_mod || true
+      modprobe -q mmc_core || true
+      modprobe -q mmc_block || true
+      modprobe -q sdhci || true
+      modprobe -q uas || true
+      modprobe -q usb-storage || true
       udevadm settle --timeout=15 || true
 
       lsblk -p -d -n -o NAME,TYPE,RO,SIZE -b | while read -r name type ro size; do
@@ -253,7 +270,6 @@ config:
               --reboot=no \
               --mute-console=yes \
               "${TARGET_DISK}" < /dev/null
-            stage_fallback_bootloader
           else
             echo "ERROR: No suitable target disk found for unattended installation!" >&2
             exit 1
@@ -269,11 +285,12 @@ config:
             --copy-locale=yes \
             --copy-keymap=yes \
             --copy-timezone=yes
-          stage_fallback_bootloader
-          echo "==> Installation complete! Rebooting..."
-          systemctl reboot
           ;;
       esac
+
+      stage_fallback_bootloader
+      echo "==> Installation complete! Rebooting..."
+      systemctl reboot
       EOF
       chmod +x /layer/usr/bin/microraptor-sysinstall
 
@@ -370,7 +387,7 @@ config:
       ukify build \
         --linux="${INSTALLER_KERNEL}" \
         --initrd=/installer.cpio.gz \
-        --cmdline="systemd.unit=system-install.target console=tty0 console=ttyS0,115200 rw systemd.debug-shell=1 loglevel=7 nomodeset" \
+        --cmdline="systemd.unit=system-install.target console=tty0 rw rd.systemd.debug-shell=1 loglevel=7 nomodeset pci=noacpi" \
         --output=/layer/boot/efi/EFI/BOOT/BOOTX64.EFI
       ls -lh /layer/boot/efi/EFI/BOOT/BOOTX64.EFI
 

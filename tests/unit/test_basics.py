@@ -69,6 +69,15 @@ def test_tailscale_quadlet_present():
     assert (ROOT / "files" / "os" / "containers" / "systemd" / "templates" / "tailscale.container").exists()
 
 
+def test_logind_ignores_lid_switch():
+    ddi = (ROOT / "elements" / "oci" / "microraptor-ddi.bst").read_text()
+    installer = (ROOT / "elements" / "oci" / "microraptor-installer.bst").read_text()
+    assert "HandleLidSwitch=ignore" in ddi
+    assert "HandleLidSwitchExternalPower=ignore" in ddi
+    assert "HandleLidSwitch=ignore" in installer
+    assert "HandleLidSwitchExternalPower=ignore" in installer
+
+
 def main():
     tests = [
         test_project_conf_has_release_version,

@@ -45,7 +45,8 @@ def test_installer_runtime_and_boot_contracts() -> None:
     published_uki_cmdline = _published_uki_cmdline(installer_element)
     target_uki_cmdline = _target_uki_cmdline(installer_element)
 
-    assert "console=tty0 console=ttyS0,115200 rw" in published_uki_cmdline
+    assert "console=tty0 rw" in published_uki_cmdline
+    assert "pci=noacpi" in published_uki_cmdline
     assert "unattended" not in published_uki_cmdline
     assert target_uki_cmdline == "rw console=ttyS0,115200 console=tty0"
     assert (
@@ -104,16 +105,24 @@ def test_target_initramfs_preloads_sysext_filesystem_drivers() -> None:
     installer_element = INSTALLER_ELEMENT.read_text(encoding="utf-8")
 
     assert (
-        '--add-drivers "virtio virtio_blk virtio_pci virtio_scsi nvme nvme_core xfs erofs overlay"'
+        '--add-drivers "virtio virtio_blk virtio_pci virtio_scsi nvme nvme_core ahci libata sd_mod mmc_core mmc_block sdhci uas usb-storage xfs erofs overlay"'
         in installer_element
     )
 
 
-def test_installer_loads_nvme_and_settles_udev() -> None:
+def test_installer_loads_storage_drivers_and_settles_udev() -> None:
     installer_element = INSTALLER_ELEMENT.read_text(encoding="utf-8")
 
     assert "modprobe -q nvme || true" in installer_element
     assert "modprobe -q nvme_core || true" in installer_element
+    assert "modprobe -q ahci || true" in installer_element
+    assert "modprobe -q libata || true" in installer_element
+    assert "modprobe -q sd_mod || true" in installer_element
+    assert "modprobe -q mmc_core || true" in installer_element
+    assert "modprobe -q mmc_block || true" in installer_element
+    assert "modprobe -q sdhci || true" in installer_element
+    assert "modprobe -q uas || true" in installer_element
+    assert "modprobe -q usb-storage || true" in installer_element
     assert "udevadm settle --timeout=15 || true" in installer_element
     assert "After=systemd-udev-settle.service" in installer_element
     assert "Wants=systemd-udev-settle.service" in installer_element

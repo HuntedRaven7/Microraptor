@@ -57,6 +57,10 @@ config:
       # Ensure standard /etc/hosts exists for container runtimes (containerd/podman)
       printf '127.0.0.1   localhost\n::1         localhost ip6-localhost ip6-loopback\n' > /layer/etc/hosts
 
+      # Prevent screen from turning off when laptop lid closes
+      mkdir -p /layer/etc/systemd/logind.conf.d
+      printf '[Login]\nHandleLidSwitch=ignore\nHandleLidSwitchExternalPower=ignore\n' > /layer/etc/systemd/logind.conf.d/noclose.conf
+
       # Ensure persistent /var is mounted from its partition label
       printf '/dev/disk/by-partlabel/var /var xfs defaults 0 0\n' > /layer/etc/fstab
 
