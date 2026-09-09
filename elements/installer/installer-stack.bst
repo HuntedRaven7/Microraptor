@@ -19,7 +19,11 @@ depends:
   # in our favour.
   - installer/linux-firmware-installer.bst
 
-  # Base runtime
+  # Base runtime. runtime-gnu (ordered first) provides /bin/sh and
+  # coreutils -- without a shell the microraptor-sysinstall wrapper
+  # fails at EXEC (203) and the unit's FailureAction=poweroff shuts the
+  # machine down ~8s after boot. runtime-minimal alone has no shell.
+  - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
   - freedesktop-sdk.bst:public-stacks/runtime-minimal.bst
   - freedesktop-sdk.bst:components/ca-certificates.bst
   - freedesktop-sdk.bst:components/tzdata.bst

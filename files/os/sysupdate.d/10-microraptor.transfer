@@ -4,11 +4,11 @@ Title=Microraptor OS image
 [Source]
 Type=url-file
 Path=https://github.com/HuntedRaven7/Microraptor/releases/latest/download/
-MatchPattern=Microraptor-ddi-@v.raw.zst
+MatchPattern=microraptor-ddi-@v.raw.zst
 
 [Target]
 Type=regular-file
 Path=/var/lib/extensions
-MatchPattern=Microraptor-ddi-@v.raw
-CurrentSymlink=Microraptor-ddi.raw
+MatchPattern=microraptor-ddi-@v.raw
+CurrentSymlink=microraptor-ddi.raw
 Mode=0644

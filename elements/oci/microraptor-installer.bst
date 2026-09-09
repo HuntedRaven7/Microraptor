@@ -57,6 +57,10 @@ build-depends:
   - filename: microraptor/os-rootfs.bst
     config:
       location: /target-root
+  # Uncompressed k0s sysext staged into the installer initrd for offline install
+  - filename: oci/k0s-sysext.bst
+    config:
+      location: /k0s
 
 variables:
   installer-version: "%{release-version}"
@@ -113,7 +117,7 @@ config:
       ldconfig || true
 
       dracut -v --reproducible --no-machineid --no-hostonly \
-        --add-drivers "virtio virtio_blk virtio_pci virtio_scsi xfs" \
+        --add-drivers "virtio virtio_blk virtio_pci virtio_scsi xfs erofs overlay" \
         --filesystems "xfs vfat" \
         --kmoddir "/target-root/usr/lib/modules/${TARGET_KVER}" \
         --kernel-image "${TARGET_KERNEL}" \
@@ -189,7 +193,7 @@ config:
         break
       done
 
-      CMDLINE="$(cat /proc/cmdline 2>/dev/null || true)"
+      CMDLINE="$(< /proc/cmdline)"
       case " ${CMDLINE} " in
         *" unattended "*)
           echo "==> Running in UNATTENDED mode..."
@@ -260,6 +264,12 @@ config:
       rm -f /layer/usr/lib/systemd/system/default.target
       ln -sf system-install.target \
         /layer/usr/lib/systemd/system/default.target
+
+    # ── Step 2a: Stage the offline k0s sysext before packing the initrd ─
+    - |
+      set -eux
+      cp /k0s/k0s-*.raw /layer/k0s.raw
+      ls -lh /layer/k0s.raw
 
     # -- Step 2: Wire default.target -> system-install.target ------------
     # find . from /layer gives paths like ./usr/bin/... which is exactly

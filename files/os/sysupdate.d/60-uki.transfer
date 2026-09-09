@@ -4,9 +4,9 @@ Title=Microraptor UKI
 [Source]
 Type=url-file
 Path=https://github.com/HuntedRaven7/Microraptor/releases/latest/download/
-MatchPattern=Microraptor-@v.efi
+MatchPattern=microraptor-@v.efi
 
 [Target]
 Type=file
 Path=/efi/EFI/Linux
-MatchPattern=Microraptor-@v.efi
+MatchPattern=microraptor-@v.efi

@@ -15,7 +15,7 @@ three must move together or the sysext silently stops updating:
 
   * ``elements/k0s/k0s-bin.bst``          — the upstream download URL.
   * ``elements/oci/k0s-sysext.bst``       — the release asset filename, which
-    ``files/os/sysupdate.d/70-k0s.transfer`` reads as the version oracle
+    ``files/os/sysupdate.k0s.d/70-k0s.transfer`` reads as the version oracle
     through its ``@v`` wildcard.
   * ``files/k0s/sysext/extension-release.k0s`` — the ``VERSION_ID=`` reported
     by ``systemd-sysext status``.
@@ -34,7 +34,7 @@ K0S_INCLUDE = ROOT / "include" / "k0s.yml"
 K0S_BIN = ROOT / "elements" / "k0s" / "k0s-bin.bst"
 K0S_SYSEXT = ROOT / "elements" / "oci" / "k0s-sysext.bst"
 EXTENSION_RELEASE = ROOT / "files" / "k0s" / "sysext" / "extension-release.k0s"
-TRANSFER = ROOT / "files" / "os" / "sysupdate.d" / "70-k0s.transfer"
+TRANSFER = ROOT / "files" / "os" / "sysupdate.k0s.d" / "70-k0s.transfer"
 
 SAFE_VERSION_RE = re.compile(r"^[A-Za-z0-9._~^+-]+$")
 LITERAL_VERSION_RE = re.compile(r"v?[0-9]+\.[0-9]+\.[0-9]+(?:\+|%2B|-)k0s\.[0-9]+")
@@ -96,7 +96,7 @@ def main():
         fail(
             f"derived k0s-version {version!r} is not filename-safe.\n"
             "  It becomes a GitHub release asset name and is parsed back out by\n"
-            "  the '@v' wildcard in files/os/sysupdate.d/70-k0s.transfer.",
+            "  the '@v' wildcard in files/os/sysupdate.k0s.d/70-k0s.transfer.",
             "restrict k0s-version to [A-Za-z0-9._~^+-] in include/k0s.yml.",
         )
 
@@ -191,7 +191,7 @@ def main():
     )
     if not pattern_match:
         fail(
-            "files/os/sysupdate.d/70-k0s.transfer declares no [Source]\n"
+            "files/os/sysupdate.k0s.d/70-k0s.transfer declares no [Source]\n"
             "  MatchPattern=...@v....zst.",
             "restore the sysupdate source MatchPattern.",
         )
@@ -215,7 +215,7 @@ def main():
             "  Hosts compare the captured string against the version they have\n"
             "  installed, so a mismatch means k0s updates silently stop.",
             "align FNAME in elements/oci/k0s-sysext.bst with MatchPattern in "
-            "files/os/sysupdate.d/70-k0s.transfer.",
+            "files/os/sysupdate.k0s.d/70-k0s.transfer.",
         )
 
     print(

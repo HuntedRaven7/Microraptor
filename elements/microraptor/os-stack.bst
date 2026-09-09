@@ -34,6 +34,12 @@ depends:
   # A/B System Update Configurations
   - microraptor/os-sysupdate.bst
 
+  # k0s component system update configuration
+  - microraptor/os-k0s-sysupdate.bst
+
+  # Activate the optional k0s sysext after installation
+  - microraptor/os-k0s-first-boot.bst
+
   # Public keyring for verifying SHA256SUMS manifests from GitHub Releases
   - microraptor/os-sysupdate-keys.bst
 

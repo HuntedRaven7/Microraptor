@@ -4,7 +4,7 @@ Title=Microraptor OS root image
 [Source]
 Type=url-file
 Path=https://github.com/HuntedRaven7/Microraptor/releases/latest/download/
-MatchPattern=Microraptor-ddi-@v.raw.zst
+MatchPattern=microraptor-ddi-@v.raw.zst
 
 [Target]
 Type=partition
