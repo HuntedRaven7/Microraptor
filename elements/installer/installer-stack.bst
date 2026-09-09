@@ -12,6 +12,13 @@ description: |
   No network access required at install time.
 
 depends:
+  # Firmware for common hardware, pruned to the installer's target class
+  # (x86_64 Chromebook/PC) so the initrd stays small enough for any UEFI
+  # to load. Full linux-firmware ~1GB -> EFI stub EFI_OUT_OF_RESOURCES.
+  # Ordered above the locale-carrying elements so file overlap resolves
+  # in our favour.
+  - installer/linux-firmware-installer.bst
+
   # Base runtime
   - freedesktop-sdk.bst:public-stacks/runtime-minimal.bst
   - freedesktop-sdk.bst:components/ca-certificates.bst
@@ -27,10 +34,6 @@ depends:
   - freedesktop-sdk.bst:components/cryptsetup.bst
   - freedesktop-sdk.bst:components/xfsprogs.bst
   - freedesktop-sdk.bst:components/dosfstools.bst
-
-  # Kernel (installer boots from this; vmlinuz used as the UKI --linux= arg)
-  - installer/ubuntu-kernel.bst
-  - freedesktop-sdk.bst:components/linux-firmware.bst
 
   # repart.d configs describing the TARGET disk layout
   - installer/installer-repart.bst

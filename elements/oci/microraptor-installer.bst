@@ -81,7 +81,19 @@ config:
       mkdir -p /layer/usr/lib/microraptor
       mkdir -p /target-root/boot/EFI/Linux /tmp /var/tmp
 
-    # -- Step 1b: Generate target OS UKI (dracut + ukify) ----------------
+    # -- Step 1b: Stage installer kernel from target rootfs -------------------
+    - |
+      set -eux
+      INSTALLER_KVER="$(basename "$(find /target-root/usr/lib/modules -mindepth 1 -maxdepth 1 -type d | head -n1)")"
+      if [ -z "${INSTALLER_KVER}" ]; then
+        echo "ERROR: no kernel module tree found under /target-root/usr/lib/modules" >&2
+        exit 1
+      fi
+      mkdir -p /layer/usr/lib/modules
+      cp -a "/target-root/usr/lib/modules/${INSTALLER_KVER}" /layer/usr/lib/modules/
+      echo "Staged installer kernel ${INSTALLER_KVER} from target rootfs"
+
+    # -- Step 1c: Generate target OS UKI (dracut + ukify) ----------------
     - |
       set -eux
       TARGET_KVER="$(basename "$(find /target-root/usr/lib/modules -mindepth 1 -maxdepth 1 -type d | head -n1)")"
@@ -116,7 +128,7 @@ config:
         --output=/target-root/boot/EFI/Linux/microraptor.efi
       cp /target-root/boot/EFI/Linux/microraptor.efi /layer/usr/lib/microraptor/microraptor.efi
 
-    # -- Step 1c: Configure installer services and users ------------------
+    # -- Step 1d: Configure installer services and users ------------------
     - |
       set -eux
       INSTALLER_KVER="$(basename "$(find /layer/usr/lib/modules -mindepth 1 -maxdepth 1 -type d | head -n1)")"
@@ -153,7 +165,7 @@ config:
       mkdir -p /layer/etc/systemd/system
       ln -sf /dev/null /layer/etc/systemd/system/systemd-firstboot.service
 
-    # -- Step 1d: Installer wrapper script and network config --------------
+    # -- Step 1d: Configure installer services and users ------------------
     - |
       set -eux
       # Write the installer wrapper script
@@ -230,7 +242,7 @@ config:
       ExecStart=/usr/bin/microraptor-sysinstall
       EOF
 
-    # -- Step 2: Wire default.target -> system-install.target ------------
+    # -- Step 1e: Installer wrapper script and network config --------------
     - |
       set -eu
       if [ ! -f /layer/usr/lib/systemd/system/system-install.target ]; then
@@ -249,7 +261,7 @@ config:
       ln -sf system-install.target \
         /layer/usr/lib/systemd/system/default.target
 
-    # -- Step 3: Pack initrd cpio -----------------------------------------
+    # -- Step 2: Wire default.target -> system-install.target ------------
     # find . from /layer gives paths like ./usr/bin/... which is exactly
     # the newc format the kernel expects. The kernel strips the leading dot.
     - |
@@ -258,6 +270,7 @@ config:
 
       # Clean up bloat from /layer before packing (reduces initrd size!)
       rm -rf /layer/usr/lib/debug /layer/usr/share/doc /layer/usr/share/man /layer/usr/include
+      rm -rf /layer/usr/share/locale /layer/usr/share/i18n
       find /layer -type f -name '*.debug' -delete
 
       # Strip unneeded large kernel modules (GPU, wireless, sound, media, bluetooth)
@@ -282,7 +295,7 @@ config:
       ls -lh /installer.cpio.gz
       ls -lh /installer.cpio.gz
 
-    # -- Step 4: Build the UKI --------------------------------------------
+    # -- Step 3: Pack initrd cpio -----------------------------------------
     # Unsigned UKI - acceptable for USB installer media. Secure Boot
     # signing can be layered on by passing --secureboot-private-key /
     # --secureboot-certificate if keys are injected at CI time.
@@ -298,7 +311,7 @@ config:
         --output=/layer/boot/efi/EFI/BOOT/BOOTX64.EFI
       ls -lh /layer/boot/efi/EFI/BOOT/BOOTX64.EFI
 
-    # -- Step 5: Decompress DDI payload for embedding ---------------------
+    # -- Step 4: Build the UKI --------------------------------------------
     # This runs AFTER the initrd cpio is packed (Step 3), so the DDI is NOT
     # included in the initrd. It is placed in /layer temporarily so that
     # systemd-repart's CopyBlocks= (which resolves paths under --root=/layer)
@@ -308,7 +321,7 @@ config:
       zstd -d /ddi/microraptor-ddi-*.raw.zst -o /layer/microraptor-ddi.raw
       ls -lh /layer/microraptor-ddi.raw
 
-    # -- Step 6: Assemble installer GPT disk image ------------------------
+    # -- Step 5: Decompress DDI payload for embedding ---------------------
     # Two-partition layout:
     #   10-esp.conf:      ESP (1G) - UKI lives here; boots the installer
     #   20-ddi-data.conf: Data (XFS) - microraptor-ddi.raw copied here block-for-block
@@ -346,7 +359,7 @@ config:
       # Clean up DDI from /layer - it's now in the installer media partition.
       rm -f /layer/microraptor-ddi.raw
 
-    # -- Step 7: Compress + checksum --------------------------------------
+    # -- Step 6: Assemble installer GPT disk image ------------------------
     - |
       set -eux
       cd "%{install-root}"
