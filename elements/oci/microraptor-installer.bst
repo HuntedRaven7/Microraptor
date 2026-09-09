@@ -198,13 +198,53 @@ config:
         break
       done
 
+      stage_fallback_bootloader() {
+        udevadm settle --timeout=10 || true
+        local target="${TARGET_DISK:-}"
+        if [ -z "${target}" ]; then
+          local root_part="$(readlink -f /dev/disk/by-partlabel/microraptor-root-a 2>/dev/null || true)"
+          if [ -n "${root_part}" ]; then
+            target="$(lsblk -p -n -d -o PKNAME "${root_part}" 2>/dev/null || true)"
+          fi
+        fi
+
+        if [ -n "${target}" ]; then
+          local esp_dev=""
+          while read -r dev fstype; do
+            if [ "${fstype}" = "vfat" ]; then
+              esp_dev="${dev}"
+              break
+            fi
+          done < <(lsblk -p -n -l -o NAME,FSTYPE "${target}")
+
+          if [ -n "${esp_dev}" ] && [ -b "${esp_dev}" ]; then
+            echo "==> Staging UEFI removable media fallback /EFI/BOOT/BOOTX64.EFI on ${esp_dev}..."
+            mkdir -p /mnt/esp
+            if mount -t vfat "${esp_dev}" /mnt/esp; then
+              mkdir -p /mnt/esp/EFI/BOOT
+              for candidate in \
+                /mnt/esp/EFI/systemd/systemd-bootx64.efi \
+                /mnt/esp/EFI/Linux/microraptor.efi \
+                /usr/lib/microraptor/microraptor.efi; do
+                if [ -f "${candidate}" ]; then
+                  cp -a "${candidate}" /mnt/esp/EFI/BOOT/BOOTX64.EFI
+                  echo "==> Successfully staged ${candidate} -> ${esp_dev}:/EFI/BOOT/BOOTX64.EFI"
+                  break
+                fi
+              done
+              umount /mnt/esp || true
+            fi
+          fi
+        fi
+      }
+
       CMDLINE="$(< /proc/cmdline)"
       case " ${CMDLINE} " in
         *" unattended "*)
           echo "==> Running in UNATTENDED mode..."
           if [ -n "${TARGET_DISK}" ]; then
             echo "==> Auto-detected target disk: ${TARGET_DISK}"
-            exec /usr/bin/systemd-sysinstall \
+            /usr/bin/systemd-sysinstall \
               --kernel=/usr/lib/microraptor/microraptor.efi \
               --erase=yes \
               --confirm=no \
@@ -213,6 +253,7 @@ config:
               --reboot=no \
               --mute-console=yes \
               "${TARGET_DISK}" < /dev/null
+            stage_fallback_bootloader
           else
             echo "ERROR: No suitable target disk found for unattended installation!" >&2
             exit 1
@@ -220,14 +261,17 @@ config:
           ;;
         *)
           echo "==> Running in INTERACTIVE mode..."
-          exec /usr/bin/systemd-sysinstall \
+          /usr/bin/systemd-sysinstall \
             --kernel=/usr/lib/microraptor/microraptor.efi \
             --variables=yes \
-            --reboot=yes \
+            --reboot=no \
             --mute-console=yes \
             --copy-locale=yes \
             --copy-keymap=yes \
             --copy-timezone=yes
+          stage_fallback_bootloader
+          echo "==> Installation complete! Rebooting..."
+          systemctl reboot
           ;;
       esac
       EOF

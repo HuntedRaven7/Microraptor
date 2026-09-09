@@ -30,6 +30,7 @@ def test_os_stack_has_network_manager():
 
 def test_os_stack_includes_dbus_broker():
     stack = (ROOT / "elements" / "microraptor" / "os-stack.bst").read_text()
+    assert "dbus.bst" in stack, "os-stack missing dbus.bst for dbus.socket"
     assert "dbus-broker.bst" in stack, "os-stack missing dbus-broker.bst"
 
 

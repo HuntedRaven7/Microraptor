@@ -32,6 +32,8 @@ depends:
 
   # systemd full (includes systemd-repart, systemd-firstboot, bootctl)
   - freedesktop-sdk.bst:components/systemd.bst
+  - freedesktop-sdk.bst:components/dbus.bst
+  - freedesktop-sdk.bst:components/dbus-broker.bst
   - freedesktop-sdk.bst:components/kmod.bst
 
   # Disk setup: LUKS partition support during install
