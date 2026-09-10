@@ -13,6 +13,7 @@ It is [DDI first](https://0pointer.net/blog/fitting-everything-together.html): t
 -   **Minimal, distroless OS image** — no shell in the running rootfs by default.
 -   **Network Manager included** — dynamic network configuration management via Network Manager.
  -   **SSH included** — standard server administration with key-based authentication.
+ -   **Custom Chromebook kernel** — built from Linux 7.2.4 with i915, sdhci_acpi, cqhci, Intel audio, and WiFi drivers.
  -   **systemd-native installer** — `systemd-sysinstall` provides the interactive terminal UI and `systemd-repart` handles partitioning and block-copy DDI placement.
 -   **Optional k0s as a `systemd-sysext`** so the base image stays distroless.
 

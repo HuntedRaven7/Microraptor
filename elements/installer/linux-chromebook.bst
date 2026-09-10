@@ -12,10 +12,13 @@ description: |
 
   Replaces the stock FSDK kernel which lacks Chromebook driver support.
 
+  Compilation uses `ccache` to speed up rebuilds when only the kernel
+  config changes.
+
 sources:
   - kind: tar
-    url: https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.14.tar.xz
-    ref: 6.14
+    url: https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.4.tar.xz
+    ref: 01710ee01737dac492f1bae52becd057e08d20d11589089aa06accff415c28dd
   - kind: local
     path: files/installer/linux-chromebook.config
 
@@ -27,6 +30,7 @@ build-depends:
   - freedesktop-sdk.bst:components/pahole.bst
   - freedesktop-sdk.bst:components/kmod.bst
   - freedesktop-sdk.bst:components/openssl.bst
+  - freedesktop-sdk.bst:components/ccache.bst
 
 variables:
   strip-binaries: ''
@@ -36,12 +40,14 @@ config:
     - |
       set -eux
       cd /buildstream-install
-      tar -xf linux-6.14.tar.xz
-      cd linux-6.14
+      tar -xf linux-7.2.4.tar.xz
+      cd linux-7.2.4
 
       cp ../linux-chromebook.config .config
       make olddefconfig
 
+      export CC="ccache gcc"
+      export HOSTCC="ccache gcc"
       make -j"$(nproc)" all
       make -j"$(nproc)" modules
 
