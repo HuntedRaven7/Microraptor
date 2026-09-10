@@ -39,9 +39,22 @@ config:
   install-commands:
     - |
       set -eux
+      export CCACHE_DIR="/root/.cache/buildstream/ccache"
+      mkdir -p "${CCACHE_DIR}"
       cd /buildstream-install
-      tar -xf linux-7.2.4.tar.xz
-      cd linux-7.2.4
+      ls -la
+      TAR_FILE="$(find . -maxdepth 1 -type f -name 'linux-7.2.4*.tar.xz' | head -n 1 || true)"
+      if [ -z "${TAR_FILE}" ]; then
+        echo "ERROR: linux-7.2.4 tarball not found in /buildstream-install" >&2
+        exit 1
+      fi
+      tar -xf "${TAR_FILE}"
+      SRC_DIR="$(find . -maxdepth 1 -type d -name 'linux-7.2.4*' | head -n 1 || true)"
+      if [ -z "${SRC_DIR}" ]; then
+        echo "ERROR: linux-7.2.4 source directory not found after extraction" >&2
+        exit 1
+      fi
+      cd "${SRC_DIR}"
 
       cp ../linux-chromebook.config .config
       make olddefconfig

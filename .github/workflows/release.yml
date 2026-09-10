@@ -48,6 +48,14 @@ jobs:
           mkdir -p ~/.cache
           ln -sf /mnt/buildstream ~/.cache/buildstream
 
+      - name: Cache ccache for custom kernel
+        uses: actions/cache@5b332203923f1b9c40d21436aa5a617625de4f5d
+        with:
+          path: /mnt/buildstream/ccache
+          key: ccache-linux-7.2.4-${{ hashFiles('files/installer/linux-chromebook.config') }}
+          restore-keys: |
+            ccache-linux-7.2.4-
+
       - name: Validate Element Graph
         run: just validate
 
