@@ -16,7 +16,7 @@ microraptor is an FSDK-based, image-based Linux server OS. It produces:
 1. Compose from FSDK `components/*`. Never use `platform.bst`.
 2. Keep the CPU baseline broad: no `x86_64_v3`.
 3. Installer must stay `systemd-sysinstall`-native; no custom installer scripts or non-native installers.
-4. SSH is included for standard server administration; root login is permitted with key-based auth only (see [`files/os/ssh/sshd_config.d/microraptor.conf`](files/os/ssh/sshd_config.d/microraptor.conf)). Podman is included for container workloads and quadlet support.
+4. SSH is included for standard server administration; root login is permitted with key-based auth only (see [`files/os/ssh/sshd_config.d/microraptor.conf`](files/os/ssh/sshd_config.d/microraptor.conf)).
 5. Boot entries use GPT `PARTUUID`; never hardcode device paths.
 6. One canonical source per fact; do not duplicate content across docs.
 

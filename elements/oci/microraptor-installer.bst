@@ -122,7 +122,7 @@ config:
       ldconfig || true
 
       dracut -v --reproducible --no-machineid --no-hostonly \
-        --add-drivers "virtio virtio_blk virtio_pci virtio_scsi nvme nvme_core ahci libata sd_mod mmc_core mmc_block sdhci uas usb-storage xfs erofs overlay" \
+         --add-drivers "virtio virtio_blk virtio_pci virtio_scsi nvme nvme_core ahci libata sd_mod mmc_core mmc_block sdhci sdhci_acpi cqhci uas usb-storage xfs erofs overlay iwldvm iwlmvm ath9k ath10k ath11k mt7921 mt7922 mt7925 rtl8xxxu" \
         --filesystems "xfs vfat" \
         --kmoddir "/target-root/usr/lib/modules/${TARGET_KVER}" \
         --kernel-image "${TARGET_KERNEL}" \
@@ -186,10 +186,7 @@ config:
       #!/bin/sh
       set -eu
 
-      TARGET_DISK=""
-      INSTALLER_PART="$(readlink -f /dev/disk/by-partlabel/microraptor-installer-data 2>/dev/null || true)"
-
-      # Ensure NVMe, SATA, USB, and eMMC/SD modules are loaded and block devices enumerated before inspecting disks
+      # Ensure NVMe, SATA, USB, eMMC/SD, and WiFi modules are loaded
       modprobe -q nvme || true
       modprobe -q nvme_core || true
       modprobe -q ahci || true
@@ -199,12 +196,41 @@ config:
       modprobe -q mmc_block || true
       modprobe -q sdhci || true
       modprobe -q sdhci_acpi || true
+      modprobe -q cqhci || true
       modprobe -q uas || true
       modprobe -q usb-storage || true
+      modprobe -q iwldvm || true
+      modprobe -q iwlmvm || true
+      modprobe -q ath9k || true
+      modprobe -q ath10k || true
+      modprobe -q ath11k || true
+      modprobe -q mt7921 || true
+      modprobe -q mt7922 || true
+      modprobe -q mt7925 || true
+      modprobe -q rtl8xxxu || true
       udevadm settle --timeout=15 || true
 
-      lsblk -p -d -n -o NAME,TYPE,RO,SIZE -b | while read -r name type ro size; do
+      echo "==> Enumerating block devices for target disk..."
+      lsblk -p -d -n -o NAME,TYPE,RM,SIZE -b 2>&1 || true
+      echo "==> MMC/eMMC kernel messages (dmesg):"
+      dmesg 2>/dev/null | grep -iE 'mmc|emmc|sdhci|rk3399|cqhci|k3|mobicore' || true
+      echo "==> Storage driver modules loaded:"
+      lsmod 2>/dev/null | grep -iE 'mmc|sdhci|sd_mod' || true
+      echo "==> Storage devices in /dev:"
+      ls -la /dev/mmc* /dev/sd* /dev/nvme* /dev/vd* 2>/dev/null || true
+      echo "==> WiFi kernel messages (dmesg):"
+      dmesg 2>/dev/null | grep -iE 'wifi|wlan|iwl|ath|mt792|rtl8|cfg80211|mac80211' || true
+      echo "==> WiFi driver modules loaded:"
+      lsmod 2>/dev/null | grep -iE 'iwl|ath|mt792|rtl8|cfg80211|mac80211' || true
+      echo "==> WiFi devices in /dev:"
+      ls -la /dev/null /dev/tty* /dev/rfkill 2>/dev/null || true
+
+      TARGET_DISK=""
+      INSTALLER_PART="$(readlink -f /dev/disk/by-partlabel/microraptor-installer-data 2>/dev/null || true)"
+
+      while read -r name type rm size; do
         [ "${type}" = "disk" ] || continue
+        [ "${rm}" = "0" ] || continue
         [ "${size}" -gt 0 ] || continue
 
         case "${INSTALLER_PART}" in
@@ -213,45 +239,88 @@ config:
 
         TARGET_DISK="${name}"
         break
-      done
+      done < <(lsblk -p -d -n -o NAME,TYPE,RM,SIZE -b)
+
+      if [ -z "${TARGET_DISK}" ]; then
+        while read -r name type rm size; do
+          [ "${type}" = "disk" ] || continue
+          [ "${size}" -gt 0 ] || continue
+
+          case "${INSTALLER_PART}" in
+            "${name}"*) continue ;;
+          esac
+
+          TARGET_DISK="${name}"
+          break
+        done < <(lsblk -p -d -n -o NAME,TYPE,SIZE -b)
+      fi
 
       stage_fallback_bootloader() {
+        echo "==> stage_fallback_bootloader: checking for target disk..."
         udevadm settle --timeout=10 || true
         local target="${TARGET_DISK:-}"
+        echo "==> stage_fallback_bootloader: TARGET_DISK='${TARGET_DISK}'"
+
         if [ -z "${target}" ]; then
           local root_part="$(readlink -f /dev/disk/by-partlabel/microraptor-root-a 2>/dev/null || true)"
+          echo "==> stage_fallback_bootloader: root_part='${root_part}'"
           if [ -n "${root_part}" ]; then
             target="$(lsblk -p -n -d -o PKNAME "${root_part}" 2>/dev/null || true)"
+            echo "==> stage_fallback_bootloader: derived target='${target}'"
           fi
         fi
 
         if [ -n "${target}" ]; then
-          local esp_dev=""
-          while read -r dev fstype; do
-            if [ "${fstype}" = "vfat" ]; then
-              esp_dev="${dev}"
-              break
+          echo "==> stage_fallback_bootloader: enumerating partitions on ${target}..."
+          local esp_part=""
+          local root_part=""
+          while read -r dev fstype type; do
+            echo "==> stage_fallback_bootloader: partition ${dev} fstype=${fstype} type=${type}"
+            if [ "${type}" = "part" ] && [ "${fstype}" = "vfat" ]; then
+              esp_part="${dev}"
+              echo "==> stage_fallback_bootloader: candidate ESP=${esp_part}"
             fi
-          done < <(lsblk -p -n -l -o NAME,FSTYPE "${target}")
+            if [ "${type}" = "part" ]; then
+              local label
+              label="$(lsblk -p -n -d -o LABEL "${dev}" 2>/dev/null || true)"
+              echo "==> stage_fallback_bootloader: partition ${dev} label='${label}'"
+              if [ "${label}" = "Microraptor-root-a" ]; then
+                root_part="${dev}"
+                echo "==> stage_fallback_bootloader: found root partition=${root_part}"
+              fi
+            fi
+          done < <(lsblk -p -n -l -o NAME,FSTYPE,TYPE "${target}")
 
-          if [ -n "${esp_dev}" ] && [ -b "${esp_dev}" ]; then
-            echo "==> Staging UEFI removable media fallback /EFI/BOOT/BOOTX64.EFI on ${esp_dev}..."
-            mkdir -p /mnt/esp
-            if mount -t vfat "${esp_dev}" /mnt/esp; then
-              mkdir -p /mnt/esp/EFI/BOOT
-              for candidate in \
-                /mnt/esp/EFI/systemd/systemd-bootx64.efi \
-                /mnt/esp/EFI/Linux/microraptor.efi \
-                /usr/lib/microraptor/microraptor.efi; do
-                if [ -f "${candidate}" ]; then
-                  cp -a "${candidate}" /mnt/esp/EFI/BOOT/BOOTX64.EFI
-                  echo "==> Successfully staged ${candidate} -> ${esp_dev}:/EFI/BOOT/BOOTX64.EFI"
-                  break
+          if [ -n "${root_part}" ] && [ -b "${root_part}" ]; then
+            mkdir -p /mnt/root
+            if mount -t xfs "${root_part}" /mnt/root; then
+              echo "==> stage_fallback_bootloader: mounted root at /mnt/root"
+              if [ -n "${esp_part}" ] && [ -b "${esp_part}" ]; then
+                mkdir -p /mnt/root/boot/efi
+                if mount -t vfat "${esp_part}" /mnt/root/boot/efi; then
+                  echo "==> stage_fallback_bootloader: mounted ESP at /mnt/root/boot/efi"
+                  echo "==> Installing systemd-boot bootloader to ${esp_part}..."
+                  if bootctl install --esp-path=/mnt/root/boot/efi --root=/mnt/root; then
+                    echo "==> stage_fallback_bootloader: bootctl install succeeded"
+                  else
+                    echo "==> stage_fallback_bootloader: bootctl install FAILED" >&2
+                  fi
+                  umount /mnt/root/boot/efi || true
+                else
+                  echo "==> stage_fallback_bootloader: failed to mount ESP ${esp_part}" >&2
                 fi
-              done
-              umount /mnt/esp || true
+              else
+                echo "==> stage_fallback_bootloader: no ESP partition found" >&2
+              fi
+              umount /mnt/root || true
+            else
+              echo "==> stage_fallback_bootloader: failed to mount root ${root_part}" >&2
             fi
+          else
+            echo "==> stage_fallback_bootloader: root partition not found or not a block device" >&2
           fi
+        else
+          echo "==> stage_fallback_bootloader: no target disk available" >&2
         fi
       }
 
@@ -261,6 +330,8 @@ config:
           echo "==> Running in UNATTENDED mode..."
           if [ -n "${TARGET_DISK}" ]; then
             echo "==> Auto-detected target disk: ${TARGET_DISK}"
+            echo "==> Calling systemd-sysinstall on ${TARGET_DISK}..."
+            lsblk -p -n -l -o NAME,FSTYPE,SIZE,LABEL "${TARGET_DISK}" || true
             /usr/bin/systemd-sysinstall \
               --kernel=/usr/lib/microraptor/microraptor.efi \
               --erase=yes \
@@ -270,6 +341,7 @@ config:
               --reboot=no \
               --mute-console=yes \
               "${TARGET_DISK}" < /dev/null
+            echo "==> systemd-sysinstall returned: $?"
           else
             echo "ERROR: No suitable target disk found for unattended installation!" >&2
             exit 1
@@ -387,7 +459,7 @@ config:
       ukify build \
         --linux="${INSTALLER_KERNEL}" \
         --initrd=/installer.cpio.gz \
-        --cmdline="systemd.unit=system-install.target console=tty0 rw rd.systemd.debug-shell=1 loglevel=7 nomodeset pci=noacpi" \
+        --cmdline="systemd.unit=system-install.target console=tty0 rw rd.systemd.debug-shell=1 loglevel=7 nomodeset" \
         --output=/layer/boot/efi/EFI/BOOT/BOOTX64.EFI
       ls -lh /layer/boot/efi/EFI/BOOT/BOOTX64.EFI
 

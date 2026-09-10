@@ -26,7 +26,7 @@ metadata:
 | Kubernetes | Optional sysext | Optional | Optional | Built-in |
 | Network Manager | Yes | No (networkd) | No (networkd) | No (networkd) |
 | Shell in base image | No | No | No | No |
-| Container runtime | podman | Docker/MCR | Podman | containerd |
+| Container runtime | none (sysext optional) | Docker/MCR | Podman | containerd |
 
 ## Verification
 

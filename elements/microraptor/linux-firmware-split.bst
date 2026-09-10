@@ -1,5 +1,5 @@
 kind: compose
-description: Chisel linux-firmware down to server-essential blobs only for extreme efficiency.
+description: Chisel linux-firmware down to essential blobs for server and Chromebook-class hardware.
 
 build-depends:
   - freedesktop-sdk.bst:components/linux-firmware.bst
@@ -7,16 +7,14 @@ build-depends:
 config:
   integrate: False
 
-  # Exclude debug symbols, development files, and locales from composed output
   exclude:
     - debug
     - devel
     - doc
     - locale
 
-  # Only include CPU microcode, virtual, net, and Intel/AMD firmware needed for servers
   include:
-    # CPU Microcodes (intel & amd)
+    # CPU Microcodes
     - /usr/lib/firmware/intel-ucode/**
     - /usr/lib/firmware/amd-ucode/**
 
@@ -29,6 +27,9 @@ config:
     # Intel networking
     - /usr/lib/firmware/intel/igc/**
 
+    # Intel chipset / management engine
+    - /usr/lib/firmware/intel/me/**
+
     # VirtIO / KubeVirt guest hardware support
     - /usr/lib/firmware/virtio/**
 
@@ -39,3 +40,19 @@ config:
 
     # Regulatory database
     - /usr/lib/firmware/regulatory.db*
+
+    # Intel WiFi
+    - /usr/lib/firmware/iwlwifi/**
+
+    # Atheros WiFi
+    - /usr/lib/firmware/ath9k/**
+    - /usr/lib/firmware/ath10k/**
+    - /usr/lib/firmware/ath11k/**
+
+    # MediaTek WiFi
+    - /usr/lib/firmware/mt7921/**
+    - /usr/lib/firmware/mt7922/**
+    - /usr/lib/firmware/mt7925/**
+
+    # Realtek WiFi
+    - /usr/lib/firmware/rtw88/**

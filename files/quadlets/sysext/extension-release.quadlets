@@ -1,6 +1,0 @@
-NAME=quadlets
-ID=_any
-ID_LIKE=quadlets
-VERSION=%{quadlets-version}
-PRETTY_NAME="microraptor quadlets %{quadlets-version}"
-HOME_URL="https://github.com/HuntedRaven7/Microraptor"

@@ -25,8 +25,6 @@ This is the lazy-load routing table for agent skills. Keep this file in memory w
 | [`k0s-sysext.md`](k0s-sysext.md) | Building the k0s sysext | BuildStream element and publish steps for the k0s sysext. |
 | [`k0s-sysext-ops.md`](k0s-sysext-ops.md) | Operating k0s on microraptor | Runtime operation and reboot coordination for k0s. |
 | [`skill-improvement.md`](skill-improvement.md) | Adding, splitting, or refactoring skills | Meta-skill that owns the documentation loop. |
-| [`podman-quadlets-sysext.md`](podman-quadlets-sysext.md) | Building the podman-quadlets sysext | BuildStream element and publish steps for the podman-quadlets sysext. |
-| [`podman-quadlets.md`](podman-quadlets.md) | Working with Podman quadlets on microraptor | Podman quadlet deployment and management. |
 | [`system-containers.md`](system-containers.md) | Running `systemd-nspawn` toolboxes | System container operation with `machinectl`. |
 | [`systemd-sysext-extensions.md`](systemd-sysext-extensions.md) | Optional layers via `systemd-sysext` / `systemd-confext` | Extension identity, loading, and Flatcar compatibility. |
 | [`systemd-sysupdate-verification.md`](systemd-sysupdate-verification.md) | Image-based A/B updates and signed manifests | Release signing, `systemd-sysupdate`, and trust model. |

@@ -15,6 +15,8 @@ depends:
   - freedesktop-sdk.bst:components/dbus-broker.bst
   - freedesktop-sdk.bst:components/kmod.bst
   - freedesktop-sdk.bst:components/shadow.bst
+  - freedesktop-sdk.bst:components/polkit.bst
+  - freedesktop-sdk.bst:components/nftables.bst
 
   # Remote access for standard server administration
   - freedesktop-sdk.bst:components/openssh-systemd.bst
@@ -23,8 +25,8 @@ depends:
   - microraptor/os-sshd-preset.bst
   - microraptor/os-sshd-config.bst
 
-  # Stock FSDK Kernel & Server-Chiseled Firmware
-  - freedesktop-sdk.bst:components/linux.bst
+  # Custom minimal Chromebook kernel (i915, sdhci_acpi, cqhci, Intel audio)
+  - installer/linux-chromebook.bst
   - microraptor/linux-firmware-split.bst
 
   # Filesystem resizing support for growing root/var on first boot
@@ -42,12 +44,6 @@ depends:
   # Activate the optional k0s sysext after installation
   - microraptor/os-k0s-first-boot.bst
 
-  # podman-quadlets component system update configuration
-  - microraptor/os-quadlets-sysupdate.bst
-
-  # Activate the optional podman-quadlets sysext after installation
-  - microraptor/os-quadlets-first-boot.bst
-
   # Public keyring for verifying SHA256SUMS manifests from GitHub Releases
   - microraptor/os-sysupdate-keys.bst
 
@@ -60,9 +56,6 @@ depends:
   # Reboot Coordination for Kured
   - microraptor/os-kured-hook.bst
 
-  # Container Runtime support
-  - freedesktop-sdk.bst:components/podman.bst
-
   # Network Manager configuration and enablement
   - freedesktop-sdk.bst:components/networkmanager.bst
   - microraptor/os-network-manager.bst
@@ -72,5 +65,3 @@ depends:
 
   # Console issue banner
   - microraptor/os-issue.bst
-
-  # Podman Quadlets are deployed optionally via the podman-quadlets sysext

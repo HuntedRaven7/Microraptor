@@ -22,7 +22,7 @@ Kubernetes is not baked into the OS DDI. The base image stays small and stateles
 
 ## Workloads are containers
 
-The workloads the factory tests and ships live in other repositories or image pipelines. microraptor hosts them via `podman`.
+The workloads the factory tests and ships live in other repositories or image pipelines.
 
 > microraptor is the factory floor; optional workloads and variant images run on that floor.
 
@@ -34,7 +34,6 @@ The workloads the factory tests and ships live in other repositories or image pi
 | Atomic, rollback-capable updates | Image-based A/B updates via `systemd-sysupdate` |
 | Minimal attack surface / no shell in OS | Distroless DDI; optional tools as sysexts |
 | Kubernetes control plane on every node | k3s delivered as `systemd-sysext` |
-| Container workloads | `podman` in the base OS stack |
 | Signed, verifiable release artifacts | GPG-signed `SHA256SUMS` + `import-pubring.gpg` |
 
 ## SSH and standard server administration

@@ -46,7 +46,6 @@ def test_installer_runtime_and_boot_contracts() -> None:
     target_uki_cmdline = _target_uki_cmdline(installer_element)
 
     assert "console=tty0 rw" in published_uki_cmdline
-    assert "pci=noacpi" in published_uki_cmdline
     assert "unattended" not in published_uki_cmdline
     assert target_uki_cmdline == "rw console=ttyS0,115200 console=tty0"
     assert (
@@ -96,7 +95,8 @@ def test_ddi_generates_module_indexes_for_runtime_filesystem_drivers() -> None:
     assert "cp -a /etc/pki/ca-trust/extracted/* /layer/etc/pki/ca-trust/extracted/" in ddi_element
     assert "tls-ca-bundle.pem" in ddi_element
     assert "ln -sf /dev/null /layer/etc/systemd/system/systemd-firstboot.service" in ddi_element
-    assert "ln -sf /dev/null /layer/etc/systemd/system/audit-rules.service" in ddi_element
+    assert "ln -sf /usr/lib/systemd/system/auditd.service" in ddi_element
+    assert "audit/rules.d/50-microraptor.rules" in ddi_element
     assert "printf '127.0.0.1   localhost" in ddi_element
     assert "> /layer/etc/hosts" in ddi_element
 
@@ -105,7 +105,7 @@ def test_target_initramfs_preloads_sysext_filesystem_drivers() -> None:
     installer_element = INSTALLER_ELEMENT.read_text(encoding="utf-8")
 
     assert (
-        '--add-drivers "virtio virtio_blk virtio_pci virtio_scsi nvme nvme_core ahci libata sd_mod mmc_core mmc_block sdhci uas usb-storage xfs erofs overlay"'
+        '--add-drivers "virtio virtio_blk virtio_pci virtio_scsi nvme nvme_core ahci libata sd_mod mmc_core mmc_block sdhci sdhci_acpi cqhci uas usb-storage xfs erofs overlay iwldvm iwlmvm ath9k ath10k ath11k mt7921 mt7922 mt7925 rtl8xxxu"'
         in installer_element
     )
 
@@ -122,8 +122,18 @@ def test_installer_loads_storage_drivers_and_settles_udev() -> None:
     assert "modprobe -q mmc_block || true" in installer_element
     assert "modprobe -q sdhci || true" in installer_element
     assert "modprobe -q sdhci_acpi || true" in installer_element
+    assert "modprobe -q cqhci || true" in installer_element
     assert "modprobe -q uas || true" in installer_element
     assert "modprobe -q usb-storage || true" in installer_element
+    assert "modprobe -q iwldvm || true" in installer_element
+    assert "modprobe -q iwlmvm || true" in installer_element
+    assert "modprobe -q ath9k || true" in installer_element
+    assert "modprobe -q ath10k || true" in installer_element
+    assert "modprobe -q ath11k || true" in installer_element
+    assert "modprobe -q mt7921 || true" in installer_element
+    assert "modprobe -q mt7922 || true" in installer_element
+    assert "modprobe -q mt7925 || true" in installer_element
+    assert "modprobe -q rtl8xxxu || true" in installer_element
     assert "udevadm settle --timeout=15 || true" in installer_element
     assert "After=systemd-udev-settle.service" in installer_element
     assert "Wants=systemd-udev-settle.service" in installer_element

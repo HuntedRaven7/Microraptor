@@ -51,10 +51,24 @@ config:
       mkdir -p /layer/etc/systemd/system
       ln -sf /dev/null /layer/etc/systemd/system/systemd-firstboot.service
 
-      # Mask audit-rules to prevent failure on shell-free OS (augenrules requires /bin/sh)
-      ln -sf /dev/null /layer/etc/systemd/system/audit-rules.service
+      # Enable auditd with minimal ruleset for security compliance
+      mkdir -p /layer/etc/audit/rules.d
+      printf '%s\n' \
+        '-w /etc/passwd -p wa -k identity' \
+        '-w /etc/group -p wa -k identity' \
+        '-w /etc/shadow -p wa -k identity' \
+        '-w /etc/sudoers -p wa -k actions' \
+        '-w /etc/sudoers.d/ -p wa -k actions' \
+        '-w /var/log/auth.log -p wa -k auth' \
+        '-w /etc/ssh/sshd_config -p wa -k sshd' \
+        '-a always,exit -F arch=b64 -S execve -k exec' \
+        > /layer/etc/audit/rules.d/50-microraptor.rules
+      chmod 0640 /layer/etc/audit/rules.d/50-microraptor.rules
+      mkdir -p /layer/etc/systemd/system/multi-user.target.wants
+      ln -sf /usr/lib/systemd/system/auditd.service \
+        /layer/etc/systemd/system/multi-user.target.wants/auditd.service
 
-      # Ensure standard /etc/hosts exists for container runtimes (containerd/podman)
+      # Ensure standard /etc/hosts exists for container runtimes
       printf '127.0.0.1   localhost\n::1         localhost ip6-localhost ip6-loopback\n' > /layer/etc/hosts
 
       # Prevent screen from turning off when laptop lid closes
@@ -67,14 +81,89 @@ config:
       # Ensure all standard virtual, serial, and hypervisor consoles allow root login
       printf 'tty0\ntty1\ntty2\ntty3\ntty4\ntty5\ntty6\nttyS0\nttyS1\nconsole\nhvc0\n' > /layer/etc/securetty
 
-      # Seed default root password 'bluefin' into /etc/shadow for console and ssh login
+      # Seed locked root account - use 'run0 -u root /bin/sh' for root shell
       mkdir -p /layer/etc
-      printf 'root:$6$bluefin123$o2pQjPN1n3ZCnYUROlA01xAdnGO7mhVRAVw98x4xc8LAUIJv7b44bBNoER6fM4P.rrj4ePYFfkx9WvZICU8nt/:19700:0:99999:7:::\n' > /layer/etc/shadow
+      printf 'root:!:19700:0:99999:7:::\n' > /layer/etc/shadow
       chmod 0600 /layer/etc/shadow
-      printf 'root:x:0:0:root:/root:/bin/bash\n' > /layer/etc/passwd
+      printf 'core:!:19700:0:99999:7:::\n' >> /layer/etc/shadow
+      printf 'root:x:0:0:root:/root:/bin/sh\n' > /layer/etc/passwd
       chmod 0644 /layer/etc/passwd
+      printf 'core:x:1000:1000:core:/home/core:/bin/sh\n' >> /layer/etc/passwd
       printf 'root:x:0:\n' > /layer/etc/group
       chmod 0644 /layer/etc/group
+      printf 'core:x:1000:\n' >> /layer/etc/group
+      printf 'wheel:x:998:\n' >> /layer/etc/group
+
+      # run0-based privilege escalation: wheel group gets passwordless polkit access
+      mkdir -p /layer/etc/polkit-1/rules.d
+      printf '%s\n' \
+        'polkit.addRule(function(action, subject) {' \
+        '  if (subject.isInGroup("wheel")) {' \
+        '    return polkit.Result.YES;' \
+        '  }' \
+        '});' \
+        > /layer/etc/polkit-1/rules.d/50-core-wheel.rules
+      chmod 0644 /layer/etc/polkit-1/rules.d/50-core-wheel.rules
+
+      # Basic nftables firewall: allow SSH, DHCP, outbound traffic; drop everything else
+      mkdir -p /layer/etc/nftables.d
+      printf '%s\n' \
+        'flush ruleset' \
+        '' \
+        'table inet filter {' \
+        '  chain input {' \
+        '    type filter hook input priority 0; policy drop;' \
+        '    ct state established,related accept' \
+        '    iif lo accept' \
+        '    icmp type echo-request accept' \
+        '    tcp dport 22 accept' \
+        '    udp dport 67 accept' \
+        '    udp dport 68 accept' \
+        '    drop' \
+        '  }' \
+        '  chain forward {' \
+        '    type filter hook forward priority 0; policy drop;' \
+        '    drop' \
+        '  }' \
+        '  chain output {' \
+        '    type filter hook output priority 0; policy accept;' \
+        '  }' \
+        '}' \
+        > /layer/etc/nftables.conf
+      chmod 0644 /layer/etc/nftables.conf
+
+      mkdir -p /layer/etc/systemd/system/multi-user.target.wants
+      ln -sf /usr/lib/systemd/system/nftables.service \
+        /layer/etc/systemd/system/multi-user.target.wants/nftables.service
+
+      # Kernel hardening sysctl settings
+      mkdir -p /layer/etc/sysctl.d
+      printf '%s\n' \
+        'net.ipv4.ip_forward=0' \
+        'net.ipv4.conf.all.send_redirects=0' \
+        'net.ipv4.conf.default.send_redirects=0' \
+        'net.ipv4.conf.all.accept_redirects=0' \
+        'net.ipv4.conf.default.accept_redirects=0' \
+        'net.ipv6.conf.all.accept_redirects=0' \
+        'net.ipv6.conf.default.accept_redirects=0' \
+        'net.ipv4.conf.all.secure_redirects=0' \
+        'net.ipv4.conf.all.log_martians=1' \
+        'net.ipv4.tcp_syncookies=1' \
+        'net.ipv4.tcp_rfc1337=1' \
+        'net.ipv4.conf.all.rp_filter=1' \
+        'kernel.dmesg_restrict=1' \
+        'kernel.kptr_restrict=2' \
+        'kernel.perf_event_paranoid=3' \
+        'kernel.yama.ptrace_scope=2' \
+        'fs.protected_symlinks=1' \
+        'fs.protected_hardlinks=1' \
+        'fs.protected_fifos=2' \
+        'fs.protected_regular=2' \
+        > /layer/etc/sysctl.d/99-microraptor-hardening.conf
+      chmod 0644 /layer/etc/sysctl.d/99-microraptor-hardening.conf
+
+      mkdir -p /layer/home/core
+      chmod 0755 /layer/home/core
 
       # Pre-generate SSH host keys for first boot remote diagnostics
       mkdir -p /layer/etc/ssh

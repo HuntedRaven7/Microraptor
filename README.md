@@ -12,16 +12,15 @@ It is [DDI first](https://0pointer.net/blog/fitting-everything-together.html): t
 -   **DDI-first delivery** — the installer embeds the OS payload as a data partition; no network is required at install time.
 -   **Minimal, distroless OS image** — no shell in the running rootfs by default.
 -   **Network Manager included** — dynamic network configuration management via Network Manager.
--   **SSH included** — standard server administration with key-based authentication.
--   **Podman included** — container runtime with quadlet support for systemd-native container workloads.
--   **systemd-native installer** — `systemd-sysinstall` provides the interactive terminal UI and `systemd-repart` handles partitioning and block-copy DDI placement.
+ -   **SSH included** — standard server administration with key-based authentication.
+ -   **systemd-native installer** — `systemd-sysinstall` provides the interactive terminal UI and `systemd-repart` handles partitioning and block-copy DDI placement.
 -   **Optional k0s as a `systemd-sysext`** so the base image stays distroless.
 
 > **SSH for standard server administration:** SSH is included for remote server administration. Root login is permitted with key-based auth only. See [`docs/skills/factory-integration.md`](docs/skills/factory-integration.md) for details.
 
 ## Quick start
 
-You need only `podman` and [`just`](https://github.com/casey/just). BuildStream runs inside the FSDK `bst2` container, so BuildStream is not installed locally.
+You need only [`just`](https://github.com/casey/just). BuildStream runs inside the FSDK `bst2` container, so BuildStream is not installed locally.
 
 ```bash
 just validate              # resolve the element graph
