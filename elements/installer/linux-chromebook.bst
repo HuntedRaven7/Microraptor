@@ -43,11 +43,9 @@ config:
       set -eux
       export CCACHE_DIR="/tmp/ccache"
       mkdir -p "${CCACHE_DIR}"
-      cd /buildstream-install
-      ls -la
       TAR_FILE="$(find . -maxdepth 1 -type f -name 'linux-7.2.4*.tar.xz' | head -n 1 || true)"
       if [ -z "${TAR_FILE}" ]; then
-        echo "ERROR: linux-7.2.4 tarball not found in /buildstream-install" >&2
+        echo "ERROR: linux-7.2.4 tarball not found in source directory" >&2
         exit 1
       fi
       tar -xf "${TAR_FILE}"
