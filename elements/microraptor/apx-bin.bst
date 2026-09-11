@@ -38,7 +38,7 @@ sources:
 config:
   install-commands:
     - |
-      tar -xzf archaeopteryx-%{apx-version}-linux-%{go-arch}.tar.gz
+      tar --no-same-owner -xzf archaeopteryx-%{apx-version}-linux-%{go-arch}.tar.gz
       install -D -m 0755 usr/bin/apxd "%{install-root}/usr/bin/apxd"
       install -D -m 0755 usr/bin/apxctl "%{install-root}/usr/bin/apxctl"
       install -D -m 0644 usr/lib/systemd/system/apxd.service \
