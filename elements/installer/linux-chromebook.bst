@@ -66,9 +66,8 @@ config:
       make -j"$(nproc)" modules
 
       mkdir -p /buildstream-install/boot /buildstream-install/usr/lib/modules
-      ln -s usr/lib /buildstream-install/lib
       cp arch/x86/boot/bzImage /buildstream-install/boot/vmlinuz
+      cp arch/x86/boot/bzImage "/buildstream-install/usr/lib/modules/$(make kernelrelease)/vmlinuz"
       make modules_install INSTALL_MOD_PATH=/buildstream-install
-      rm /buildstream-install/lib
 
       echo "Installed custom kernel $(make kernelrelease)"
