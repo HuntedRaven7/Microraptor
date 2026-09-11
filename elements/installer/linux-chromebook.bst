@@ -39,7 +39,7 @@ config:
   install-commands:
     - |
       set -eux
-      export CCACHE_DIR="/root/.cache/buildstream/ccache"
+      export CCACHE_DIR="/tmp/ccache"
       mkdir -p "${CCACHE_DIR}"
       cd /buildstream-install
       ls -la
