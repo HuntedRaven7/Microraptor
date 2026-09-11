@@ -15,8 +15,11 @@ description: |
   - include/arch.yml
 
 build-depends:
-  # Base runtime providing /bin/sh, tar, and install in the sandbox.
+  # Base runtime providing /bin/sh and install in the sandbox.
   - base/base-stack.bst
+
+  # tar is needed to extract the upstream release tarball.
+  - freedesktop-sdk.bst:components/tar.bst
 
 variables:
   # Do not try to strip the pre-built upstream binaries.
