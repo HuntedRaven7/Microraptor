@@ -1,0 +1,65 @@
+name: Build (local — no remote cache)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: build-local-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up just
+        uses: taiki-e/install-action@7b8d4719ee4aaa279bdf55df38dacb9ebfe12a6c
+        with:
+          tool: just
+
+      - name: Set up runner disk space
+        run: |
+          set -euo pipefail
+          sudo mkdir -p /mnt/podman /mnt/buildstream
+          sudo chown -R "$USER:$USER" /mnt/podman /mnt/buildstream
+          mkdir -p ~/.config/containers
+          cat > ~/.config/containers/storage.conf <<EOF
+          [storage]
+          driver = "overlay"
+          runroot = "/run/user/1001"
+          graphroot = "/mnt/podman"
+          EOF
+          mkdir -p ~/.cache
+          ln -sf /mnt/buildstream ~/.cache/buildstream
+
+      - name: Cache ccache for custom kernel
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: /mnt/buildstream/ccache
+          key: ccache-linux-7.2.4-${{ hashFiles('files/installer/linux-chromebook.config') }}
+          restore-keys: |
+            ccache-linux-7.2.4-
+
+      - name: Validate Element Graph
+        run: just validate
+
+      - name: Build and export DDI OS image
+        run: |
+          just build-ddi -- --ignore-project-artifact-remotes --ignore-project-source-remotes
+          just export-ddi
+
+      - name: Build and export live installer & target UKI
+        run: |
+          just build-installer -- --ignore-project-artifact-remotes --ignore-project-source-remotes
+          just export-installer
+
+      - name: Build and export k0s systemd-sysext
+        run: |
+          just build-sysext -- --ignore-project-artifact-remotes --ignore-project-source-remotes
+          just export-sysext

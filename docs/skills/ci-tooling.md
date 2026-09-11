@@ -26,6 +26,7 @@ metadata:
 ## Key workflows
 
 - `.github/workflows/build.yml` — builds DDI, installer, and k0s sysext artifacts.
+- `.github/workflows/build-local.yml` — same build targets but ignores all remote BuildStream caches; use when `gbm.gnome.org:11003` or `cache.projectbluefin.io:11001` are unreachable.
 
 ## Verification
 
