@@ -68,8 +68,8 @@ config:
       mkdir -p /buildstream-install/boot /buildstream-install/usr/lib/modules
       cp arch/x86/boot/bzImage /buildstream-install/boot/vmlinuz
       KVER="$(make kernelrelease)"
+      make modules_install INSTALL_MOD_PATH=/buildstream-install INSTALL_LIB_MOD_PATH=/buildstream-install/usr/lib
       mkdir -p "/buildstream-install/usr/lib/modules/${KVER}"
       cp arch/x86/boot/bzImage "/buildstream-install/usr/lib/modules/${KVER}/vmlinuz"
-      make modules_install INSTALL_MOD_PATH=/buildstream-install
 
       echo "Installed custom kernel $(make kernelrelease)"
