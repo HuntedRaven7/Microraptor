@@ -18,8 +18,9 @@ build-depends:
   # Base runtime providing /bin/sh and install in the sandbox.
   - base/base-stack.bst
 
-  # tar is needed to extract the upstream release tarball.
+  # tar + gzip are needed to extract the upstream release tarball.
   - freedesktop-sdk.bst:components/tar.bst
+  - freedesktop-sdk.bst:components/gzip.bst
 
 variables:
   # Do not try to strip the pre-built upstream binaries.
