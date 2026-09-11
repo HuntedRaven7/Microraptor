@@ -24,6 +24,7 @@ sources:
 
 build-depends:
   - base/base-stack.bst
+  - freedesktop-sdk.bst:public-stacks/buildsystem-make.bst
   - freedesktop-sdk.bst:components/bc.bst
   - freedesktop-sdk.bst:components/flex.bst
   - freedesktop-sdk.bst:components/bison.bst
