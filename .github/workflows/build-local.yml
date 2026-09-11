@@ -51,15 +51,15 @@ jobs:
 
       - name: Build and export DDI OS image
         run: |
-          just build-ddi -- --ignore-project-artifact-remotes --ignore-project-source-remotes
+          just bst build oci/microraptor-ddi.bst --ignore-project-artifact-remotes --ignore-project-source-remotes
           just export-ddi
 
       - name: Build and export live installer & target UKI
         run: |
-          just build-installer -- --ignore-project-artifact-remotes --ignore-project-source-remotes
+          just bst build oci/microraptor-installer.bst --ignore-project-artifact-remotes --ignore-project-source-remotes
           just export-installer
 
       - name: Build and export k0s systemd-sysext
         run: |
-          just build-sysext -- --ignore-project-artifact-remotes --ignore-project-source-remotes
+          just bst build oci/k0s-sysext.bst --ignore-project-artifact-remotes --ignore-project-source-remotes
           just export-sysext
