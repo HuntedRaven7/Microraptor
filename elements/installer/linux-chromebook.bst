@@ -16,7 +16,7 @@ description: |
   config changes.
 
 sources:
-  - kind: tar
+  - kind: remote
     url: https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.4.tar.xz
     ref: 01710ee01737dac492f1bae52becd057e08d20d11589089aa06accff415c28dd
   - kind: local
@@ -31,6 +31,8 @@ build-depends:
   - freedesktop-sdk.bst:components/kmod.bst
   - freedesktop-sdk.bst:components/openssl.bst
   - freedesktop-sdk.bst:components/ccache.bst
+  - freedesktop-sdk.bst:components/tar.bst
+  - freedesktop-sdk.bst:components/xz.bst
 
 variables:
   strip-binaries: ''
