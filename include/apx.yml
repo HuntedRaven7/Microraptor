@@ -1,0 +1,13 @@
+# Single source of truth for the apx (Archaeopteryx) version axis.
+#
+# apx ships inside the OS DDI and updates with the OS, so it versions on its
+# own independent axis: the Archaeopteryx release tag that produced the
+# binaries embedded in this image. Consumers read it from here instead of
+# restating a literal:
+#
+#   elements/microraptor/apx-bin.bst — the pinned GitHub release tarball.
+#
+# The SHA256 refs in apx-bin.bst are intentionally the only bytes restated
+# there; they come from that release's SHA256SUMS asset.
+variables:
+  apx-version: "v0.1.0"

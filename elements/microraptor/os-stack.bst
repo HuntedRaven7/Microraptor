@@ -60,6 +60,9 @@ depends:
   - freedesktop-sdk.bst:components/networkmanager.bst
   - microraptor/os-network-manager.bst
 
+  # Archaeopteryx control plane daemon (apx API + node management)
+  - microraptor/apx-bin.bst
+
   # System Management Justfile
   - microraptor/os-justfile.bst
 
