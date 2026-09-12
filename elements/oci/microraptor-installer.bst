@@ -282,21 +282,29 @@ config:
             echo "==> Auto-detected target disk: ${TARGET_DISK}"
             echo "==> Calling systemd-sysinstall on ${TARGET_DISK}..."
             lsblk -p -n -l -o NAME,FSTYPE,SIZE,LABEL "${TARGET_DISK}" || true
+
+            # Verify UKI exists before installing
+            if [ ! -f /usr/lib/microraptor/microraptor.efi ]; then
+              echo "ERROR: UKI not found at /usr/lib/microraptor/microraptor.efi" >&2
+              exit 1
+            fi
+            echo "==> UKI found at /usr/lib/microraptor/microraptor.efi"
+
              /usr/bin/systemd-sysinstall \
-               --kernel=/usr/lib/microraptor/microraptor.efi \
-               --erase=yes \
-               --confirm=no \
-               --summary=no \
-               --variables=yes \
-               --reboot=no \
-               "${TARGET_DISK}" < /dev/null
-             echo "==> systemd-sysinstall returned: $?"
-             echo "==> Logging repart.d definitions for debug:"
-             ls -la /layer/usr/lib/repart.d/ 2>/dev/null || true
-             for f in /layer/usr/lib/repart.d/*.conf; do
-               echo "==> repart config: ${f}"
-               sed -n '1,120p' "${f}" 2>/dev/null || true
-             done
+                --kernel=/usr/lib/microraptor/microraptor.efi \
+                --erase=yes \
+                --confirm=no \
+                --summary=no \
+                --variables=yes \
+                --reboot=no \
+                "${TARGET_DISK}" < /dev/null
+              echo "==> systemd-sysinstall returned: $?"
+              echo "==> Logging repart.d definitions for debug:"
+              ls -la /usr/lib/repart.d/ 2>/dev/null || true
+              for f in /usr/lib/repart.d/*.conf; do
+                echo "==> repart config: ${f}"
+                sed -n '1,120p' "${f}" 2>/dev/null || true
+              done
              echo "==> Logging final install summary to ESP..."
              {
                echo "microraptor install log: $(date -u)"
@@ -333,6 +341,11 @@ config:
           ;;
         *)
           echo "==> Running in INTERACTIVE mode..."
+          if [ ! -f /usr/lib/microraptor/microraptor.efi ]; then
+            echo "ERROR: UKI not found at /usr/lib/microraptor/microraptor.efi" >&2
+            exit 1
+          fi
+          echo "==> UKI found at /usr/lib/microraptor/microraptor.efi"
           /usr/bin/systemd-sysinstall \
             --kernel=/usr/lib/microraptor/microraptor.efi \
             --variables=yes \
