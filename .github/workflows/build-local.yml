@@ -58,8 +58,3 @@ jobs:
         run: |
           just bst build oci/microraptor-installer.bst --ignore-project-artifact-remotes --ignore-project-source-remotes
           just export-installer
-
-      - name: Build and export k0s systemd-sysext
-        run: |
-          just bst build oci/k0s-sysext.bst --ignore-project-artifact-remotes --ignore-project-source-remotes
-          just export-sysext

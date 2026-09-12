@@ -69,11 +69,6 @@ jobs:
           just build-installer
           just export-installer
 
-      - name: Build and export k0s systemd-sysext
-        run: |
-          just build-sysext
-          just export-sysext
-
       - name: Resolve release version
         id: version
         run: echo "version=$(just version)" >> "$GITHUB_OUTPUT"
@@ -150,7 +145,6 @@ jobs:
           mkdir -p dist/release
           cp dist/microraptor-installer-*.raw.zst dist/microraptor-*.efi dist/release/
           cp dist/ddi/microraptor-ddi-*.raw.zst dist/release/
-          cp dist/sysext/k0s-*.raw.zst dist/release/
           (cd dist/release && sha256sum --binary -- * > SHA256SUMS)
           ls -lh dist/release/
 

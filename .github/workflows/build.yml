@@ -67,11 +67,6 @@ jobs:
           just build-installer
           just export-installer
 
-      - name: Build and export k0s systemd-sysext
-        run: |
-          just build-sysext
-          just export-sysext
-
   track-refs:
     if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'renovate/')
     runs-on: ubuntu-24.04

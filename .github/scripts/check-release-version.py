@@ -11,10 +11,6 @@ That value names every published *OS* release asset
 `microraptor-installer-<v>.raw.zst`) and is the version
 systemd-sysupdate extracts from those filenames via `@v`.
 
-The k0s sysext is deliberately *not* on this axis: it is an
-independently-pinned third-party payload versioned from `include/k0s.yml`
-and enforced separately by `.github/scripts/check-k0s-version.py`.
-
 The release *tag* is derived independently by the Justfile
 (`fsdk_version`), which greps the point release out of the pinned
 `elements/freedesktop-sdk.bst` junction ref. Renovate bumps that ref

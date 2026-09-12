@@ -12,14 +12,6 @@ microraptor is not a generic server distribution; it is the core operating syste
 
 The factory pattern is broader than a single host: a downstream CI lab or OS factory uses microraptor as the base OS for automated provisioning, image-based updates, and optional runtime workloads. That environment shapes the design of this repository.
 
-## k0s is a sysext, not base image bloat
-
-Kubernetes is not baked into the OS DDI. The base image stays small and stateless; k0s is delivered as a `systemd-sysext` EROFS image that overlays `/usr/` at runtime.
-
-- `elements/oci/k0s-sysext.bst` builds the sysext.
-- `files/os/sysupdate.k0s.d/70-k0s.transfer` enables OTA updates of the sysext.
-- `files/os/justfile` provides the entrypoint.
-
 ## Workloads are containers
 
 The workloads the factory tests and ships live in other repositories or image pipelines.
