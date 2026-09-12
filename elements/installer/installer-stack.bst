@@ -19,6 +19,12 @@ depends:
   # in our favour.
   - installer/linux-firmware-installer.bst
 
+  # Podman quadlet templates shipped in the installer initrd
+  - installer/quadlet-chooser.bst
+
+  # Interactive TUI for quadlet chooser and user creation
+  - freedesktop-sdk.bst:components/newt.bst
+
   # Base runtime. runtime-gnu (ordered first) provides /bin/sh and
   # coreutils -- without a shell the microraptor-sysinstall wrapper
   # fails at EXEC (203) and the unit's FailureAction=poweroff shuts the

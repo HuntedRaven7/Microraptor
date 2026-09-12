@@ -47,7 +47,7 @@ def test_installer_runtime_and_boot_contracts() -> None:
 
     assert "console=tty0 rw" in published_uki_cmdline
     assert "unattended" not in published_uki_cmdline
-    assert target_uki_cmdline == "rw console=ttyS0,115200 console=tty0"
+    assert target_uki_cmdline == "rw root=PARTLABEL=Microraptor-root-a rootwait rootfstype=xfs rd.debug console=ttyS0,115200 console=tty0"
     assert (
         '-append "systemd.unit=system-install.target '
         'console=tty0 console=ttyS0,115200 rw unattended"'

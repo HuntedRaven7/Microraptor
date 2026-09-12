@@ -1,0 +1,13 @@
+[Unit]
+Description=Tailscale node
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStartPre=/usr/bin/podman pull docker.io/tailscale/tailscale:latest
+ExecStart=/usr/bin/podman run --rm --name tailscale --net=host --privileged -v /var/lib/tailscale:/var/lib/tailscale -v /dev:/dev -v /run/dbus:/run/dbus tailscale/tailscale:latest tailscaled
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

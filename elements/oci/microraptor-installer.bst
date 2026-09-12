@@ -57,10 +57,6 @@ build-depends:
   - filename: microraptor/os-rootfs.bst
     config:
       location: /target-root
-  # Uncompressed k0s sysext staged into the installer initrd for offline install
-  - filename: oci/k0s-sysext.bst
-    config:
-      location: /k0s
 
 variables:
   installer-version: "%{release-version}"
@@ -110,30 +106,50 @@ config:
         echo "ERROR: no kernel module tree found under /target-root/usr/lib/modules" >&2
         exit 1
       fi
-      TARGET_KERNEL="/target-root/usr/lib/modules/${TARGET_KVER}/vmlinuz"
+      TARGET_KERNEL="/target-root/boot/vmlinuz"
       if [ ! -f "${TARGET_KERNEL}" ]; then
-        echo "ERROR: target kernel is missing at ${TARGET_KERNEL}" >&2
+        TARGET_KERNEL="/target-root/usr/lib/modules/${TARGET_KVER}/vmlinuz"
+      fi
+      if [ ! -f "${TARGET_KERNEL}" ]; then
+        echo "ERROR: target kernel is missing at /target-root/boot/vmlinuz or /target-root/usr/lib/modules/${TARGET_KVER}/vmlinuz" >&2
         exit 1
       fi
       mkdir -p /target-root/boot
-      ln -sf "../usr/lib/modules/${TARGET_KVER}/vmlinuz" /target-root/boot/vmlinuz
+      ln -sf "/usr/lib/modules/${TARGET_KVER}/vmlinuz" /target-root/boot/vmlinuz 2>/dev/null || true
 
       depmod -b /target-root "${TARGET_KVER}" || true
       ldconfig || true
+
+      TARGET_KERNEL_SYSROOT="${TARGET_KERNEL#/target-root}"
+      : "${TARGET_KERNEL_SYSROOT:=/boot/vmlinuz}"
+
+      # dracut needs its runtime libraries in the target root to resolve dependencies.
+      # Copy dracut's runtime files to target root.
+      mkdir -p "/target-root/usr/lib/dracut"
+      cp -a /usr/lib/dracut/* "/target-root/usr/lib/dracut/"
 
       dracut -v --reproducible --no-machineid --no-hostonly \
          --add-drivers "virtio virtio_blk virtio_pci virtio_scsi nvme nvme_core ahci libata sd_mod mmc_core mmc_block sdhci sdhci_acpi cqhci uas usb-storage xfs erofs overlay iwldvm iwlmvm ath9k ath10k ath11k mt7921 mt7922 mt7925 rtl8xxxu" \
         --filesystems "xfs vfat" \
         --kmoddir "/target-root/usr/lib/modules/${TARGET_KVER}" \
-        --kernel-image "${TARGET_KERNEL}" \
+        --kernel-image "${TARGET_KERNEL_SYSROOT}" \
         --kver "${TARGET_KVER}" \
-        --kernel-cmdline "rw console=ttyS0,115200 console=tty0" \
+        --kernel-cmdline "rw root=PARTLABEL=Microraptor-root-a rootwait rootfstype=xfs rd.debug console=ttyS0,115200 console=tty0" \
         /tmp/microraptor-target.initramfs
+
+      mkdir -p /tmp/initrd-strip
+      cd /tmp/initrd-strip
+      zstd -d /tmp/microraptor-target.initramfs -o /tmp/microraptor-target.cpio
+      cpio -id < /tmp/microraptor-target.cpio
+      find . | cpio -o -H newc | gzip -9 > /tmp/microraptor-target.initramfs
+
+      SBAT=$'sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md\nuki.author.microraptor,1,Microraptor,uki.author.microraptor,1,https://github.com/HuntedRaven7/microraptor'
 
       ukify build \
         --linux="${TARGET_KERNEL}" \
         --initrd=/tmp/microraptor-target.initramfs \
-        --cmdline="rw console=ttyS0,115200 console=tty0" \
+        --sbat="${SBAT}" \
+        --cmdline="rw root=PARTLABEL=Microraptor-root-a rootwait rootfstype=xfs rd.debug console=ttyS0,115200 console=tty0" \
         --output=/target-root/boot/EFI/Linux/microraptor.efi
       cp /target-root/boot/EFI/Linux/microraptor.efi /layer/usr/lib/microraptor/microraptor.efi
 
@@ -146,7 +162,9 @@ config:
         exit 1
       fi
       mkdir -p /layer/boot
-      ln -sf "../usr/lib/modules/${INSTALLER_KVER}/vmlinuz" /layer/boot/vmlinuz
+      if [ ! -f /layer/boot/vmlinuz ]; then
+        ln -sf "../usr/lib/modules/${INSTALLER_KVER}/vmlinuz" /layer/boot/vmlinuz
+      fi
 
       # Ensure critical tools are present in the staged rootfs before packing
       for tool in udevadm lsblk systemd-repart bootctl systemd-sysinstall; do
@@ -255,74 +273,6 @@ config:
         done < <(lsblk -p -d -n -o NAME,TYPE,SIZE -b)
       fi
 
-      stage_fallback_bootloader() {
-        echo "==> stage_fallback_bootloader: checking for target disk..."
-        udevadm settle --timeout=10 || true
-        local target="${TARGET_DISK:-}"
-        echo "==> stage_fallback_bootloader: TARGET_DISK='${TARGET_DISK}'"
-
-        if [ -z "${target}" ]; then
-          local root_part="$(readlink -f /dev/disk/by-partlabel/microraptor-root-a 2>/dev/null || true)"
-          echo "==> stage_fallback_bootloader: root_part='${root_part}'"
-          if [ -n "${root_part}" ]; then
-            target="$(lsblk -p -n -d -o PKNAME "${root_part}" 2>/dev/null || true)"
-            echo "==> stage_fallback_bootloader: derived target='${target}'"
-          fi
-        fi
-
-        if [ -n "${target}" ]; then
-          echo "==> stage_fallback_bootloader: enumerating partitions on ${target}..."
-          local esp_part=""
-          local root_part=""
-          while read -r dev fstype type; do
-            echo "==> stage_fallback_bootloader: partition ${dev} fstype=${fstype} type=${type}"
-            if [ "${type}" = "part" ] && [ "${fstype}" = "vfat" ]; then
-              esp_part="${dev}"
-              echo "==> stage_fallback_bootloader: candidate ESP=${esp_part}"
-            fi
-            if [ "${type}" = "part" ]; then
-              local label
-              label="$(lsblk -p -n -d -o LABEL "${dev}" 2>/dev/null || true)"
-              echo "==> stage_fallback_bootloader: partition ${dev} label='${label}'"
-              if [ "${label}" = "Microraptor-root-a" ]; then
-                root_part="${dev}"
-                echo "==> stage_fallback_bootloader: found root partition=${root_part}"
-              fi
-            fi
-          done < <(lsblk -p -n -l -o NAME,FSTYPE,TYPE "${target}")
-
-          if [ -n "${root_part}" ] && [ -b "${root_part}" ]; then
-            mkdir -p /mnt/root
-            if mount -t xfs "${root_part}" /mnt/root; then
-              echo "==> stage_fallback_bootloader: mounted root at /mnt/root"
-              if [ -n "${esp_part}" ] && [ -b "${esp_part}" ]; then
-                mkdir -p /mnt/root/boot/efi
-                if mount -t vfat "${esp_part}" /mnt/root/boot/efi; then
-                  echo "==> stage_fallback_bootloader: mounted ESP at /mnt/root/boot/efi"
-                  echo "==> Installing systemd-boot bootloader to ${esp_part}..."
-                  if bootctl install --esp-path=/mnt/root/boot/efi --root=/mnt/root; then
-                    echo "==> stage_fallback_bootloader: bootctl install succeeded"
-                  else
-                    echo "==> stage_fallback_bootloader: bootctl install FAILED" >&2
-                  fi
-                  umount /mnt/root/boot/efi || true
-                else
-                  echo "==> stage_fallback_bootloader: failed to mount ESP ${esp_part}" >&2
-                fi
-              else
-                echo "==> stage_fallback_bootloader: no ESP partition found" >&2
-              fi
-              umount /mnt/root || true
-            else
-              echo "==> stage_fallback_bootloader: failed to mount root ${root_part}" >&2
-            fi
-          else
-            echo "==> stage_fallback_bootloader: root partition not found or not a block device" >&2
-          fi
-        else
-          echo "==> stage_fallback_bootloader: no target disk available" >&2
-        fi
-      }
 
       CMDLINE="$(< /proc/cmdline)"
       case " ${CMDLINE} " in
@@ -332,16 +282,50 @@ config:
             echo "==> Auto-detected target disk: ${TARGET_DISK}"
             echo "==> Calling systemd-sysinstall on ${TARGET_DISK}..."
             lsblk -p -n -l -o NAME,FSTYPE,SIZE,LABEL "${TARGET_DISK}" || true
-            /usr/bin/systemd-sysinstall \
-              --kernel=/usr/lib/microraptor/microraptor.efi \
-              --erase=yes \
-              --confirm=no \
-              --summary=no \
-              --variables=yes \
-              --reboot=no \
-              --mute-console=yes \
-              "${TARGET_DISK}" < /dev/null
-            echo "==> systemd-sysinstall returned: $?"
+             /usr/bin/systemd-sysinstall \
+               --kernel=/usr/lib/microraptor/microraptor.efi \
+               --erase=yes \
+               --confirm=no \
+               --summary=no \
+               --variables=yes \
+               --reboot=no \
+               "${TARGET_DISK}" < /dev/null
+             echo "==> systemd-sysinstall returned: $?"
+             echo "==> Logging repart.d definitions for debug:"
+             ls -la /layer/usr/lib/repart.d/ 2>/dev/null || true
+             for f in /layer/usr/lib/repart.d/*.conf; do
+               echo "==> repart config: ${f}"
+               sed -n '1,120p' "${f}" 2>/dev/null || true
+             done
+             echo "==> Logging final install summary to ESP..."
+             {
+               echo "microraptor install log: $(date -u)"
+               echo "TARGET_DISK=${TARGET_DISK}"
+               echo "INSTALLER_KVER=${INSTALLER_KVER}"
+               TARGET_KVER="$(basename "$(find /target-root/usr/lib/modules -mindepth 1 -maxdepth 1 -type d | head -n1)")" || true
+               echo "TARGET_KVER=${TARGET_KVER}"
+               echo "==> Post-install partition table:"
+               lsblk -p -n -l -o NAME,FSTYPE,SIZE,LABEL,TYPE "${TARGET_DISK}" || true
+               echo "==> Verifying root partition..."
+               ROOT_PART="$(readlink -f /dev/disk/by-partlabel/Microraptor-root-a 2>/dev/null || true)"
+               if [ -n "${ROOT_PART}" ] && [ -b "${ROOT_PART}" ]; then
+                 echo "==> Root partition found at ${ROOT_PART}"
+                 mkdir -p /mnt/verify-root
+                 if mount -t xfs "${ROOT_PART}" /mnt/verify-root; then
+                   echo "==> Root filesystem mounted successfully"
+                   ls -la /mnt/verify-root/ | head -20
+                   umount /mnt/verify-root || true
+                 else
+                   echo "==> ERROR: Failed to mount root filesystem on ${ROOT_PART}" >&2
+                 fi
+               else
+                 echo "==> ERROR: Root partition Microraptor-root-a not found!" >&2
+               fi
+               echo "==> Boot entries:"
+               bootctl list 2>/dev/null || true
+             } 2>&1 | tee /layer/installer-log.txt || true
+             mkdir -p /layer/boot/efi/EFI/Linux 2>/dev/null || true
+             cp /layer/installer-log.txt /layer/boot/efi/EFI/Linux/installer-log.txt 2>/dev/null || true
           else
             echo "ERROR: No suitable target disk found for unattended installation!" >&2
             exit 1
@@ -353,14 +337,71 @@ config:
             --kernel=/usr/lib/microraptor/microraptor.efi \
             --variables=yes \
             --reboot=no \
-            --mute-console=yes \
             --copy-locale=yes \
             --copy-keymap=yes \
             --copy-timezone=yes
           ;;
       esac
 
-      stage_fallback_bootloader
+      interactive_setup() {
+        local root_part=""
+        root_part="$(readlink -f /dev/disk/by-partlabel/Microraptor-root-a 2>/dev/null || true)"
+        if [ -z "${root_part}" ] || [ ! -b "${root_part}" ]; then
+          echo "==> interactive_setup: root partition not found, skipping" >&2
+          return 0
+        fi
+
+        local mnt="/mnt/root"
+        mkdir -p "${mnt}"
+        if ! mount -t xfs "${root_part}" "${mnt}"; then
+          echo "==> interactive_setup: failed to mount root" >&2
+          return 0
+        fi
+
+        trap 'umount "${mnt}" >/dev/null 2>&1 || true' EXIT
+
+        choose_quadlets "${mnt}"
+
+        umount "${mnt}" || true
+        trap - EXIT
+      }
+
+      choose_quadlets() {
+        local mnt="$1"
+        local quadlet_src="/usr/share/microraptor/quadlets"
+        local quadlet_dst="${mnt}/etc/containers/systemd"
+        local tmp_sel
+        local selected
+        local choices=()
+        local idx=0
+
+        mkdir -p "${quadlet_dst}"
+
+        for f in "${quadlet_src}"/*.quadlet; do
+          [ -f "${f}" ] || continue
+          choices+=("${f}" "$(basename "${f}")" "on")
+          idx=$(( idx + 1 ))
+        done
+
+        if [ "${idx}" -eq 0 ]; then
+          echo "==> choose_quadlets: no quadlets available"
+          return 0
+        fi
+
+        selected="$(whiptail --separate-output --checklist "Select podman quadlets to install" 20 70 10 "${choices[@]}" 3>&1 1>&2 2>&3 3>&1 || true)"
+        if [ -z "${selected}" ]; then
+          return 0
+        fi
+
+        mkdir -p "${quadlet_dst}"
+        for src in ${selected}; do
+          cp -a "${src}" "${quadlet_dst}/"
+          echo "==> choose_quadlets: installed $(basename "${src}")"
+        done
+      }
+
+      interactive_setup
+
       echo "==> Installation complete! Rebooting..."
       systemctl reboot
       EOF
@@ -404,12 +445,6 @@ config:
       rm -f /layer/usr/lib/systemd/system/default.target
       ln -sf system-install.target \
         /layer/usr/lib/systemd/system/default.target
-
-    # ── Step 2a: Stage the offline k0s sysext before packing the initrd ─
-    - |
-      set -eux
-      cp /k0s/k0s-*.raw /layer/k0s.raw
-      ls -lh /layer/k0s.raw
 
     # -- Step 2: Wire default.target -> system-install.target ------------
     # find . from /layer gives paths like ./usr/bin/... which is exactly
@@ -455,11 +490,21 @@ config:
       set -eux
       mkdir -p /layer/boot/efi/EFI/BOOT
       INSTALLER_KVER="$(basename "$(find /layer/usr/lib/modules -mindepth 1 -maxdepth 1 -type d | head -n1)")"
-      INSTALLER_KERNEL="/layer/usr/lib/modules/${INSTALLER_KVER}/vmlinuz"
+      INSTALLER_KERNEL="/layer/boot/vmlinuz"
+      if [ ! -f "${INSTALLER_KERNEL}" ]; then
+        INSTALLER_KERNEL="/layer/usr/lib/modules/${INSTALLER_KVER}/vmlinuz"
+      fi
+      if [ ! -f "${INSTALLER_KERNEL}" ]; then
+        echo "ERROR: installer kernel is missing at /layer/boot/vmlinuz or /layer/usr/lib/modules/${INSTALLER_KVER}/vmlinuz" >&2
+        exit 1
+      fi
+      SBAT=$'sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md\nuki.author.microraptor,1,Microraptor,uki.author.microraptor,1,https://github.com/HuntedRaven7/microraptor'
+
       ukify build \
         --linux="${INSTALLER_KERNEL}" \
         --initrd=/installer.cpio.gz \
-        --cmdline="systemd.unit=system-install.target console=tty0 rw rd.systemd.debug-shell=1 loglevel=7 nomodeset" \
+        --sbat="${SBAT}" \
+         --cmdline="systemd.unit=system-install.target console=tty0 rw rd.systemd.debug-shell=1 loglevel=7" \
         --output=/layer/boot/efi/EFI/BOOT/BOOTX64.EFI
       ls -lh /layer/boot/efi/EFI/BOOT/BOOTX64.EFI
 

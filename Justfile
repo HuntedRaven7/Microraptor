@@ -51,10 +51,8 @@ tags:
 [group('dev')]
 validate:
     python3 .github/scripts/check-release-version.py
-    python3 .github/scripts/check-k0s-version.py
     just bst show --deps all oci/microraptor-ddi.bst
     just bst show --deps all oci/microraptor-installer.bst
-    just bst show --deps all oci/k0s-sysext.bst
 
 # Run the unit test suite (pytest + bats).
 [group('dev')]
@@ -108,20 +106,46 @@ export-pxe: export-installer
     @test -n "$(find dist/ -maxdepth 1 -type f -name 'microraptor-pxe-initrd-*.cpio.gz' -print -quit)" || { echo "ERROR: PXE initrd was not exported." >&2; exit 1; }
     @echo "==> wrote PXE artifacts:" && ls -lh dist/microraptor-pxe-*
 
-# -- k0s systemd-sysext -------------------------------------------------------
-[group('sysext')]
-build-sysext:
-    just bst build oci/k0s-sysext.bst
+# Sign exported EFI artifacts for Secure Boot (requires sbsigntool).
+# SECUREBOOT_KEY and SECUREBOOT_CERT must point to the private key and certificate files.
+# For local use: SECUREBOOT_KEY=/path/to/key.pem SECUREBOOT_CERT=/path/to/cert.pem just sign
+[group('installer')]
+sign:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    KEY="${SECUREBOOT_KEY:-}"
+    CERT="${SECUREBOOT_CERT:-}"
+    if [ -z "$KEY" ] || [ -z "$CERT" ]; then
+        echo "ERROR: SECUREBOOT_KEY and SECUREBOOT_CERT must be set" >&2
+        exit 1
+    fi
+    if ! command -v sbsign >/dev/null 2>&1; then
+        echo "ERROR: sbsign not found. Install sbsigntool." >&2
+        exit 1
+    fi
+    UKI=$(find dist/ -maxdepth 1 -type f -name 'microraptor-*.efi' | head -n1)
+    if [ -z "$UKI" ]; then
+        echo "ERROR: No UKI found in dist/" >&2
+        exit 1
+    fi
+    echo "==> Signing target UKI: $UKI"
+    sbsign --key "$KEY" --cert "$CERT" --output "$UKI" "$UKI"
+    echo "==> signed: $UKI"
 
-[group('sysext')]
-export-sysext: build-sysext
-    rm -rf dist/sysext dist/sysext-checkout
-    mkdir -p dist/sysext-checkout dist/sysext
-    just bst artifact checkout oci/k0s-sysext.bst --directory /src/dist/sysext-checkout
-    cp dist/sysext-checkout/k0s-*.raw.zst dist/sysext/
-    cp dist/sysext-checkout/SHA256SUMS dist/sysext/
-    rm -rf dist/sysext-checkout
-    @echo "==> wrote k0s sysext:" && ls -lh dist/sysext/
+    IMG=$(find dist/ -maxdepth 1 -type f -name 'microraptor-installer-*.raw.zst' | head -n1)
+    if [ -n "$IMG" ]; then
+        echo "==> Signing installer UKI in $IMG"
+        zstd -d "$IMG" -o /tmp/installer.raw
+        LOOP=$(sudo losetup -f --show -P /tmp/installer.raw)
+        ESP_PART="${LOOP}p1"
+        sudo mkdir -p /tmp/esp
+        sudo mount -t vfat "$ESP_PART" /tmp/esp
+        sudo sbsign --key "$KEY" --cert "$CERT" --output /tmp/esp/EFI/BOOT/BOOTX64.EFI /tmp/esp/EFI/BOOT/BOOTX64.EFI
+        sudo umount /tmp/esp
+        sudo losetup -d "$LOOP"
+        zstd --rm -T0 -19 -q /tmp/installer.raw -o "$IMG"
+        echo "==> signed installer UKI in $IMG"
+    fi
 
 # Write the raw GPT installer image to a physical USB drive.
 [group('installer')]
@@ -234,55 +258,18 @@ show-me-the-future:
         -serial mon:stdio \
         -no-reboot < /dev/null
 
-    echo "==> Preparing target /var refresh with offline k0s sysext and smoke secret..."
-    K0S_RAW_ZST=""
-    if [ -d dist/sysext ]; then
-      K0S_RAW_ZST=$(find dist/sysext/ -maxdepth 1 -type f -name 'k0s-*.raw.zst' 2>/dev/null | head -n 1 || true)
-    fi
-    if [ -z "$K0S_RAW_ZST" ]; then
-      just export-sysext
-      K0S_RAW_ZST=$(find dist/sysext/ -maxdepth 1 -type f -name 'k0s-*.raw.zst' | head -n 1)
-    fi
-    [ -n "$K0S_RAW_ZST" ] || { echo "ERROR: k0s sysext not found in dist/sysext" >&2; exit 1; }
-
-    VAR_STAGING="$WORKDIR/var-staging"
-    mkdir -p "$VAR_STAGING/lib/k0s"
-    mkdir -p "$VAR_STAGING/lib/k0s/manifests/kubestellar"
-    zstd -dc "$K0S_RAW_ZST" > "$VAR_STAGING/lib/k0s/k0s.raw"
-
-    printf '%s\n' \
-      'apiVersion: v1' \
-      'kind: Namespace' \
-      'metadata:' \
-      '  name: kubestellar-console' \
-      '---' \
-      'apiVersion: v1' \
-      'kind: Secret' \
-      'metadata:' \
-      '  name: kubestellar-console-github-oauth' \
-      '  namespace: kubestellar-console' \
-      'type: Opaque' \
-      'stringData:' \
-      '  client-id: dummy-client-id' \
-      '  client-secret: dummy-client-secret' \
-      '  jwt-secret: smoke-only-jwt-secret-1234567890' \
-      > "$VAR_STAGING/lib/k0s/manifests/kubestellar/00-kubestellar-console-github-oauth.yaml"
-
+    echo "==> Preparing target /var partition..."
     REPART_DIR="$WORKDIR/repart.d"
     mkdir -p "$REPART_DIR"
     printf '%s\n' \
       '[Partition]' \
       'Type=var' \
       'Label=var' \
-      'UUID=296ed67f-37e5-4a1f-b86a-ec708a3128b8' \
       'Format=xfs' \
-      'FactoryReset=yes' \
       'GrowFileSystem=yes' \
-      "CopyFiles=${VAR_STAGING}:/" \
       > "$REPART_DIR/30-var.conf"
 
     echo "==> Refreshing target /var partition using systemd-repart..."
-    # systemd-repart operates on the target image directly without loopback/sudo when passed as the target operand.
     unshare -r systemd-repart \
       --factory-reset=yes \
       --dry-run=no \

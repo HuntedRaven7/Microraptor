@@ -1,6 +1,6 @@
 # microraptor
 
-**An FSDK-based, image-based Linux server OS with Network Manager.**
+**An FSDK-based, image-based Linux server OS designed for Podman Quadlet-driven workloads.**
 
 microraptor targets the same use-case space as Flatcar Container Linux, Fedora CoreOS, and Talos, but is built from scratch with [BuildStream 2](https://buildstream.build/) from [freedesktop-sdk](https://freedesktop-sdk.freedesktop.org/) components.
 
@@ -10,12 +10,11 @@ It is [DDI first](https://0pointer.net/blog/fitting-everything-together.html): t
 
 -   **Image-based updates and atomic rollbacks** via A/B partition slots and `systemd-sysupdate`.
 -   **DDI-first delivery** — the installer embeds the OS payload as a data partition; no network is required at install time.
--   **Minimal, distroless OS image** — no shell in the running rootfs by default.
+-   **Flatcar-style FSDK base** — built from freedesktop-sdk components, following the same immutable OS model as Flatcar Container Linux.
+-   **Podman Quadlets** — the primary application delivery mechanism. The installer includes an interactive chooser to select which quadlets to deploy on first boot (e.g., Tailscale, Traefik, and other services). Quadlets are stored in `/etc/containers/systemd/` and managed by systemd.
+-   **systemd-native installer** — `systemd-sysinstall` provides the interactive terminal UI and `systemd-repart` handles partitioning and block-copy DDI placement.
 -   **Network Manager included** — dynamic network configuration management via Network Manager.
- -   **SSH included** — standard server administration with key-based authentication.
- -   **Custom Chromebook kernel** — built from Linux 7.2.4 with i915, sdhci_acpi, cqhci, Intel audio, and WiFi drivers.
- -   **systemd-native installer** — `systemd-sysinstall` provides the interactive terminal UI and `systemd-repart` handles partitioning and block-copy DDI placement.
--   **Optional k0s as a `systemd-sysext`** so the base image stays distroless.
+-   **SSH included** — standard server administration with key-based authentication.
 
 > **SSH for standard server administration:** SSH is included for remote server administration. Root login is permitted with key-based auth only. See [`docs/skills/factory-integration.md`](docs/skills/factory-integration.md) for details.
 

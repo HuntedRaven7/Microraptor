@@ -11,12 +11,15 @@ depends:
 
   # System Initialization, Core, and Device Management
   - freedesktop-sdk.bst:components/systemd.bst
+  - freedesktop-sdk.bst:components/systemd-libs.bst
   - freedesktop-sdk.bst:components/dbus.bst
   - freedesktop-sdk.bst:components/dbus-broker.bst
   - freedesktop-sdk.bst:components/kmod.bst
   - freedesktop-sdk.bst:components/shadow.bst
   - freedesktop-sdk.bst:components/polkit.bst
   - freedesktop-sdk.bst:components/nftables.bst
+  - freedesktop-sdk.bst:components/git.bst
+  - freedesktop-sdk.bst:components/vim.bst
 
   # Remote access for standard server administration
   - freedesktop-sdk.bst:components/openssh-systemd.bst
@@ -25,9 +28,9 @@ depends:
   - microraptor/os-sshd-preset.bst
   - microraptor/os-sshd-config.bst
 
-  # Custom minimal Chromebook kernel (i915, sdhci_acpi, cqhci, Intel audio)
-  - installer/linux-chromebook.bst
-  - microraptor/linux-firmware-split.bst
+  # Full FSDK kernel + full firmware for the installed system
+  - freedesktop-sdk.bst:components/linux.bst
+  - freedesktop-sdk.bst:components/linux-firmware.bst
 
   # Filesystem resizing support for growing root/var on first boot
   - freedesktop-sdk.bst:components/xfsprogs.bst
@@ -37,12 +40,6 @@ depends:
 
   # A/B System Update Configurations
   - microraptor/os-sysupdate.bst
-
-  # k0s component system update configuration
-  - microraptor/os-k0s-sysupdate.bst
-
-  # Activate the optional k0s sysext after installation
-  - microraptor/os-k0s-first-boot.bst
 
   # Public keyring for verifying SHA256SUMS manifests from GitHub Releases
   - microraptor/os-sysupdate-keys.bst
@@ -59,9 +56,6 @@ depends:
   # Network Manager configuration and enablement
   - freedesktop-sdk.bst:components/networkmanager.bst
   - microraptor/os-network-manager.bst
-
-  # Archaeopteryx control plane daemon (apx API + node management)
-  - microraptor/apx-bin.bst
 
   # System Management Justfile
   - microraptor/os-justfile.bst

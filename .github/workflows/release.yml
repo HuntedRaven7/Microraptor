@@ -103,6 +103,47 @@ jobs:
           name: release-assets
           path: dist/
 
+      - name: Install Secure Boot signing tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sbsigntool
+
+      - name: Prepare Secure Boot signing keys
+        if: ${{ secrets.SECUREBOOT_PRIVATE_KEY != '' && secrets.SECUREBOOT_CERTIFICATE != '' }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/secureboot
+          echo "${{ secrets.SECUREBOOT_PRIVATE_KEY }}" > /tmp/secureboot/key.pem
+          echo "${{ secrets.SECUREBOOT_CERTIFICATE }}" > /tmp/secureboot/cert.pem
+          chmod 600 /tmp/secureboot/key.pem
+
+      - name: Sign target UKI
+        if: ${{ secrets.SECUREBOOT_PRIVATE_KEY != '' && secrets.SECUREBOOT_CERTIFICATE != '' }}
+        env:
+          SB_KEY: /tmp/secureboot/key.pem
+          SB_CERT: /tmp/secureboot/cert.pem
+        run: |
+          set -euo pipefail
+          sbsign --key "$SB_KEY" --cert "$SB_CERT" --output dist/microraptor-26.08.0.efi dist/microraptor-26.08.0.efi
+
+      - name: Sign installer UKI (BOOTX64.EFI in installer image)
+        if: ${{ secrets.SECUREBOOT_PRIVATE_KEY != '' && secrets.SECUREBOOT_CERTIFICATE != '' }}
+        env:
+          SB_KEY: /tmp/secureboot/key.pem
+          SB_CERT: /tmp/secureboot/cert.pem
+        run: |
+          set -euo pipefail
+          IMG=$(find dist/ -name 'microraptor-installer-*.raw.zst' | head -n1)
+          zstd -d "$IMG" -o /tmp/installer.raw
+          LOOP=$(sudo losetup -f --show -P /tmp/installer.raw)
+          ESP_PART="${LOOP}p1"
+          sudo mkdir -p /tmp/esp
+          sudo mount -t vfat "$ESP_PART" /tmp/esp
+          sudo sbsign --key "$SB_KEY" --cert "$SB_CERT" --output /tmp/esp/EFI/BOOT/BOOTX64.EFI /tmp/esp/EFI/BOOT/BOOTX64.EFI
+          sudo umount /tmp/esp
+          sudo losetup -d "$LOOP"
+          zstd --rm -T0 -19 -q /tmp/installer.raw -o "$IMG"
+
       - name: Prepare release assets
         run: |
           set -euo pipefail

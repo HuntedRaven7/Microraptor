@@ -1,0 +1,13 @@
+[Unit]
+Description=Traefik reverse proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStartPre=/usr/bin/podman pull docker.io/traefik:latest
+ExecStart=/usr/bin/podman run --rm --name traefik -p 80:80 -p 443:443 -v /etc/traefik:/etc/traefik:ro traefik:latest --configFile=/etc/traefik/traefik.yaml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
