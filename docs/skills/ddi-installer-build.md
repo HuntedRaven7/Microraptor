@@ -26,8 +26,6 @@ metadata:
 | `just export-ddi` | Export DDI artifacts to `dist/ddi/`. |
 | `just build-installer` | Local full installer build. |
 | `just export-installer` | Export installer + UKI to `dist/`. |
-| `just build-sysext` | Build the k0s `systemd-sysext`. |
-| `just export-sysext` | Export sysext artifacts to `dist/sysext/`. |
 | `just show-me-the-future` | Local QEMU installer smoke test. |
 
 ## Verification

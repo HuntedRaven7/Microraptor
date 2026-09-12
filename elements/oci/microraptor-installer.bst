@@ -343,6 +343,45 @@ config:
           ;;
       esac
 
+      # Ensure bootloader is installed (systemd-sysinstall --kernel= should do this,
+      # but run explicitly as fallback)
+      ensure_bootloader() {
+        echo "==> Ensuring bootloader is installed..."
+        udevadm settle --timeout=10 || true
+        ROOT_PART="$(readlink -f /dev/disk/by-partlabel/Microraptor-root-a 2>/dev/null || true)"
+        ESP_PART="$(readlink -f /dev/disk/by-partlabel/Microraptor-ESP 2>/dev/null || true)"
+        if [ -z "${ROOT_PART}" ] || [ -z "${ESP_PART}" ]; then
+          echo "==> ensure_bootloader: partitions not found, skipping" >&2
+          return 0
+        fi
+        mkdir -p /mnt/root
+        if mount -t xfs "${ROOT_PART}" /mnt/root; then
+          mkdir -p /mnt/root/boot/efi
+          if mount -t vfat "${ESP_PART}" /mnt/root/boot/efi; then
+            if [ -f /usr/lib/microraptor/microraptor.efi ]; then
+              mkdir -p /mnt/root/boot/efi/EFI/Linux
+              cp /usr/lib/microraptor/microraptor.efi /mnt/root/boot/efi/EFI/Linux/microraptor.efi
+              echo "==> ensure_bootloader: copied UKI to ESP"
+            fi
+            echo "==> ensure_bootloader: installing systemd-boot..."
+            if bootctl install --esp-path=/mnt/root/boot/efi --root=/mnt/root; then
+              echo "==> ensure_bootloader: bootctl install succeeded"
+              bootctl list 2>/dev/null || true
+            else
+              echo "==> ensure_bootloader: bootctl install FAILED" >&2
+            fi
+            umount /mnt/root/boot/efi || true
+          else
+            echo "==> ensure_bootloader: failed to mount ESP ${ESP_PART}" >&2
+          fi
+          umount /mnt/root || true
+        else
+          echo "==> ensure_bootloader: failed to mount root ${ROOT_PART}" >&2
+        fi
+      }
+
+      ensure_bootloader
+
       interactive_setup() {
         local root_part=""
         root_part="$(readlink -f /dev/disk/by-partlabel/Microraptor-root-a 2>/dev/null || true)"

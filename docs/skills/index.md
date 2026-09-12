@@ -22,8 +22,6 @@ This is the lazy-load routing table for agent skills. Keep this file in memory w
 | [`ddi-installer-build.md`](ddi-installer-build.md) | Building the installer or DDI on the cluster | Cluster build pipeline and local installer/DDI build. |
 | [`factory-integration.md`](factory-integration.md) | Lab integration, boot-test workflow, factory role | How microraptor is consumed by the CI lab. |
 | [`gap-analysis-distros.md`](gap-analysis-distros.md) | Comparing microraptor to other server OSes | Source-verified comparison to Ubuntu, Talos, Flatcar, FCOS. |
-| [`k0s-sysext.md`](k0s-sysext.md) | Building the k0s sysext | BuildStream element and publish steps for the k0s sysext. |
-| [`k0s-sysext-ops.md`](k0s-sysext-ops.md) | Operating k0s on microraptor | Runtime operation and reboot coordination for k0s. |
 | [`skill-improvement.md`](skill-improvement.md) | Adding, splitting, or refactoring skills | Meta-skill that owns the documentation loop. |
 | [`system-containers.md`](system-containers.md) | Running `systemd-nspawn` toolboxes | System container operation with `machinectl`. |
 | [`systemd-sysext-extensions.md`](systemd-sysext-extensions.md) | Optional layers via `systemd-sysext` / `systemd-confext` | Extension identity, loading, and Flatcar compatibility. |

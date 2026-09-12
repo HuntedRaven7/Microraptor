@@ -14,6 +14,7 @@ build-depends:
   - freedesktop-sdk.bst:components/kmod.bst
   - freedesktop-sdk.bst:components/zstd.bst
   - freedesktop-sdk.bst:components/openssh.bst
+  - freedesktop-sdk.bst:components/systemd-libs.bst
   - filename: microraptor/os-rootfs.bst
     config:
       location: /layer
