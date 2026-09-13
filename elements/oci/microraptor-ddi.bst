@@ -41,6 +41,27 @@ config:
       rm -f "/layer/usr/lib/modules/${KVER}/vmlinux" "/layer/usr/lib/modules/${KVER}/System.map"
       depmod -b /layer "${KVER}"
 
+      # Copy systemd shared libraries from multiarch path to standard /usr/lib
+      # This must happen BEFORE mkfs.xfs -p /layer so libraries are included in the image
+      echo "=== Copying systemd shared libraries to /usr/lib ==="
+      for lib in /layer/usr/lib/x86_64-linux-gnu/libsystemd-*.so* /layer/usr/lib/x86_64-linux-gnu/libudev-*.so* /layer/usr/lib/x86_64-linux-gnu/systemd/libsystemd-*.so*; do
+        if [ -f "${lib}" ]; then
+          cp -av "${lib}" /layer/usr/lib/
+          echo "Copied: ${lib}"
+        fi
+      done
+      echo "=== Done copying systemd shared libraries ==="
+
+      # Verify critical systemd files exist before creating image
+      echo "=== Verifying DDI contents ==="
+      echo "Checking /layer/usr/lib/systemd/systemd:"
+      ls -la /layer/usr/lib/systemd/systemd 2>&1 || true
+      echo "Checking systemd shared libraries:"
+      ls -la /layer/usr/lib/libsystemd-*.so* 2>&1 || true
+      echo "Checking if systemd binary runs (using target dynamic linker):"
+      LD_LIBRARY_PATH=/layer/usr/lib /layer/usr/lib/systemd/systemd --version >/dev/null 2>&1 && echo "SUCCESS: systemd binary runs" || (echo "FAILURE: systemd binary failed to run"; ldd /layer/usr/lib/systemd/systemd 2>&1 | grep -E "not found|=>" || true; exit 1)
+      echo "=== Verification complete ==="
+
       # Stage extracted CA certificate bundle into target DDI rootfs
       mkdir -p /layer/etc/pki/ca-trust/extracted /layer/etc/ssl/certs /layer/etc/pki/tls/certs
       cp -a /etc/pki/ca-trust/extracted/* /layer/etc/pki/ca-trust/extracted/
@@ -76,8 +97,10 @@ config:
       mkdir -p /layer/etc/systemd/logind.conf.d
       printf '[Login]\nHandleLidSwitch=ignore\nHandleLidSwitchExternalPower=ignore\n' > /layer/etc/systemd/logind.conf.d/noclose.conf
 
-      # Ensure persistent /var is mounted from its partition label
-      printf '/dev/disk/by-partlabel/var /var xfs defaults 0 0\n' > /layer/etc/fstab
+      # Mount /var from its own partition when present. systemd-sysinstall
+      # skips creating /var (deferPartitionsFactoryReset=true), so a missing
+      # partition must degrade gracefully instead of dropping into emergency.
+      printf '/dev/disk/by-partlabel/var /var xfs defaults,nofail,x-systemd.device-timeout=10 0 0\n' > /layer/etc/fstab
 
       # Ensure all standard virtual, serial, and hypervisor consoles allow root login
       printf 'tty0\ntty1\ntty2\ntty3\ntty4\ntty5\ntty6\nttyS0\nttyS1\nconsole\nhvc0\n' > /layer/etc/securetty

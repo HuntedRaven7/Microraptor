@@ -31,6 +31,7 @@ description: |
 build-depends:
   # Toolchain for assembly
   - base/base-stack.bst
+  - freedesktop-sdk.bst:components/binutils.bst  # readelf: initrd DT_NEEDED resolution
   - freedesktop-sdk.bst:components/dracut.bst
   - freedesktop-sdk.bst:components/kmod.bst
   - freedesktop-sdk.bst:components/cpio.bst      # newc cpio archive creation
@@ -141,6 +142,68 @@ config:
       cd /tmp/initrd-strip
       zstd -d /tmp/microraptor-target.initramfs -o /tmp/microraptor-target.cpio
       cpio -id < /tmp/microraptor-target.cpio
+
+      # dracut omits most shared libraries (including glibc) from this initrd.
+      # Without them the kernel cannot exec /init in the initramfs and the
+      # system panics at the first boot. Resolve every DT_NEEDED soname used
+      # by the initrd and inject the missing libraries from the target rootfs.
+      initrd_lib_fix() {
+        local soname="$1" real="" d=""
+        for d in /target-root/lib /target-root/lib64 \
+                 /target-root/lib/x86_64-linux-gnu /target-root/usr/lib/x86_64-linux-gnu \
+                 /target-root/usr/lib /target-root/usr/lib64 \
+                 /lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu /lib /lib64 /usr/lib /usr/lib64; do
+          if [ -e "${d}/${soname}" ]; then
+            real="${d}/${soname}"
+            break
+          fi
+        done
+        [ -n "${real}" ] || return 0
+        mkdir -p usr/lib usr/lib64 usr/lib/x86_64-linux-gnu
+        cp -aLT "${real}" "usr/lib/${soname}"
+        cp -aLT "${real}" "usr/lib64/${soname}"
+        cp -aLT "${real}" "usr/lib/x86_64-linux-gnu/${soname}"
+        local dep
+        for dep in $(readelf -d "${real}" 2>/dev/null \
+                      | sed -n 's/.*NEEDED.*\[\(.*\)\]/\1/p'); do
+          case "${dep}" in
+            ld-linux*|ld-*.so|libc.so.6|libm.so.6|libdl.*|libpthread.*) continue ;;
+            *\.so*) [ -e "usr/lib/${dep}" ] || initrd_lib_fix "${dep}" ;;
+          esac
+        done
+      }
+      for f in $(find . -type f -o -type l); do
+        case "${f}" in
+          *\.so*|*systemd|*/bin/*|*/sbin/*|*/usr/libexec/*|*/usr/lib/systemd/*) ;;
+          *) continue ;;
+        esac
+        for dep in $(readelf -d "${f}" 2>/dev/null \
+                      | sed -n 's/.*NEEDED.*\[\(.*\)\]/\1/p'); do
+          case "${dep}" in
+            ld-linux*|ld-*.so) continue ;;
+            *\.so*) [ -e "usr/lib/${dep}" ] || initrd_lib_fix "${dep}" ;;
+          esac
+        done
+      done
+      if ! [ -e usr/lib/libc.so.6 ]; then
+        echo "ERROR: libc.so.6 not injected into initrd" >&2
+        exit 1
+      fi
+
+      # dracut emits a self-referential systemd-udevd symlink, which makes
+      # systemd-udevd unexecutable. Without udev no block device is ever
+      # discovered and first boot hangs forever on the root device.
+      # Mirror the working layout: udevadm is the multi-call binary.
+      if [ -L usr/lib/systemd/systemd-udevd ] \
+           && [ "$(readlink usr/lib/systemd/systemd-udevd)" = "/usr/lib/systemd/systemd-udevd" ]; then
+        ln -sfn ../../bin/udevadm usr/lib/systemd/systemd-udevd
+      fi
+      if ! [ -x usr/bin/udevadm ] \
+           || [ "$(readlink -f usr/lib/systemd/systemd-udevd)" != "$(pwd)/usr/bin/udevadm" ]; then
+        echo "ERROR: systemd-udevd not resolved to udevadm in initrd" >&2
+        exit 1
+      fi
+
       find . | cpio -o -H newc | gzip -9 > /tmp/microraptor-target.initramfs
 
       SBAT=$'sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md\nuki.author.microraptor,1,Microraptor,uki.author.microraptor,1,https://github.com/HuntedRaven7/microraptor'
@@ -377,7 +440,7 @@ config:
               echo "==> ensure_bootloader: copied UKI to ESP"
             fi
             echo "==> ensure_bootloader: installing systemd-boot..."
-            if bootctl install --esp-path=/mnt/root/boot/efi --root=/mnt/root; then
+            if bootctl install --esp-path=/mnt/root/boot/efi; then
               echo "==> ensure_bootloader: bootctl install succeeded"
               bootctl list 2>/dev/null || true
             else
