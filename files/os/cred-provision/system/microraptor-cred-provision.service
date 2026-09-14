@@ -1,0 +1,15 @@
+[Unit]
+Description=Provision first-boot root password credential
+DefaultDependencies=no
+Conflicts=shutdown.target
+After=systemd-remount-fs.service
+Before=systemd-sysusers.service
+ConditionFirstBoot=yes
+ConditionPathExists=!/etc/credstore.encrypted/passwd.hashed-password.root.cred
+ConditionPathExists=!/etc/credstore/passwd.hashed-password.root
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=30
+ExecStart=/usr/lib/systemd/microraptor-cred-provision

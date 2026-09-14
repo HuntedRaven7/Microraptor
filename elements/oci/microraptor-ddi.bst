@@ -41,16 +41,19 @@ config:
       rm -f "/layer/usr/lib/modules/${KVER}/vmlinux" "/layer/usr/lib/modules/${KVER}/System.map"
       depmod -b /layer "${KVER}"
 
-      # Copy systemd shared libraries from multiarch path to standard /usr/lib
-      # This must happen BEFORE mkfs.xfs -p /layer so libraries are included in the image
-      echo "=== Copying systemd shared libraries to /usr/lib ==="
-      for lib in /layer/usr/lib/x86_64-linux-gnu/libsystemd-*.so* /layer/usr/lib/x86_64-linux-gnu/libudev-*.so* /layer/usr/lib/x86_64-linux-gnu/systemd/libsystemd-*.so*; do
+      # Copy systemd and TPM2 shared libraries from multiarch path to standard
+      # /usr/lib (no ld.so.conf entry covers the multiarch dir, so dlopen of
+      # libtss2 by systemd-creds would otherwise fail and force the plaintext
+      # credential fallback). This must happen BEFORE mkfs.xfs -p /layer so the
+      # libraries are included in the image.
+      echo "=== Copying systemd + TPM2 shared libraries to /usr/lib ==="
+      for lib in /layer/usr/lib/x86_64-linux-gnu/libsystemd-*.so* /layer/usr/lib/x86_64-linux-gnu/libudev-*.so* /layer/usr/lib/x86_64-linux-gnu/systemd/libsystemd-*.so* /layer/usr/lib/x86_64-linux-gnu/libtss2-*.so*; do
         if [ -f "${lib}" ]; then
           cp -av "${lib}" /layer/usr/lib/
           echo "Copied: ${lib}"
         fi
       done
-      echo "=== Done copying systemd shared libraries ==="
+      echo "=== Done copying systemd + TPM2 shared libraries ==="
 
       # Verify critical systemd files exist before creating image
       echo "=== Verifying DDI contents ==="
@@ -58,6 +61,8 @@ config:
       ls -la /layer/usr/lib/systemd/systemd 2>&1 || true
       echo "Checking systemd shared libraries:"
       ls -la /layer/usr/lib/libsystemd-*.so* 2>&1 || true
+      echo "Checking libtss2 libraries for systemd-creds TPM2 support:"
+      ls -la /layer/usr/lib/libtss2-*.so* 2>&1 || true
       echo "Checking if systemd binary runs (using target dynamic linker):"
       LD_LIBRARY_PATH=/layer/usr/lib /layer/usr/lib/systemd/systemd --version >/dev/null 2>&1 && echo "SUCCESS: systemd binary runs" || (echo "FAILURE: systemd binary failed to run"; ldd /layer/usr/lib/systemd/systemd 2>&1 | grep -E "not found|=>" || true; exit 1)
       echo "=== Verification complete ==="
@@ -105,18 +110,21 @@ config:
       # Ensure all standard virtual, serial, and hypervisor consoles allow root login
       printf 'tty0\ntty1\ntty2\ntty3\ntty4\ntty5\ntty6\nttyS0\nttyS1\nconsole\nhvc0\n' > /layer/etc/securetty
 
-      # Seed locked root account - use 'run0 -u root /bin/sh' for root shell
-      mkdir -p /layer/etc
-      printf 'root:!:19700:0:99999:7:::\n' > /layer/etc/shadow
-      chmod 0600 /layer/etc/shadow
-      printf 'core:!:19700:0:99999:7:::\n' >> /layer/etc/shadow
-      printf 'root:x:0:0:root:/root:/bin/sh\n' > /layer/etc/passwd
-      chmod 0644 /layer/etc/passwd
-      printf 'core:x:1000:1000:core:/home/core:/bin/sh\n' >> /layer/etc/passwd
-      printf 'root:x:0:\n' > /layer/etc/group
-      chmod 0644 /layer/etc/group
-      printf 'core:x:1000:\n' >> /layer/etc/group
-      printf 'wheel:x:998:\n' >> /layer/etc/group
+      # Accounts are owned by systemd-sysusers at first boot, so passwd/shadow
+      # are created with the root password hash from the provisioned credential
+      # store instead of being pre-seeded locked. Remove the extra-fs /etc
+      # scaffolds, otherwise a pre-existing root entry suppresses the
+      # passwd.hashed-password.root credential when sysusers runs.
+      rm -f /layer/etc/passwd /layer/etc/group /layer/etc/shadow
+
+      # Run systemd-sysusers on first boot to create root/core and all system
+      # users, and the credential provisioning service that feeds sysusers the
+      # root password (TPM2-sealed when available).
+      mkdir -p /layer/usr/lib/systemd/system/sysinit.target.wants
+      ln -sf /usr/lib/systemd/system/systemd-sysusers.service \
+        /layer/usr/lib/systemd/system/sysinit.target.wants/systemd-sysusers.service
+      ln -sf /usr/lib/systemd/system/microraptor-cred-provision.service \
+        /layer/usr/lib/systemd/system/sysinit.target.wants/microraptor-cred-provision.service
 
       # run0-based privilege escalation: wheel group gets passwordless polkit access
       mkdir -p /layer/etc/polkit-1/rules.d

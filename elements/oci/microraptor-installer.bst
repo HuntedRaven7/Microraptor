@@ -135,7 +135,7 @@ config:
         --kmoddir "/target-root/usr/lib/modules/${TARGET_KVER}" \
         --kernel-image "${TARGET_KERNEL_SYSROOT}" \
         --kver "${TARGET_KVER}" \
-        --kernel-cmdline "rw root=PARTLABEL=Microraptor-root-a rootwait rootfstype=xfs rd.debug console=ttyS0,115200 console=tty0" \
+        --kernel-cmdline "rw root=PARTLABEL=Microraptor-root-a rootwait rootfstype=xfs rd.debug console=tty0 console=ttyS0,115200" \
         /tmp/microraptor-target.initramfs
 
       mkdir -p /tmp/initrd-strip
@@ -204,6 +204,21 @@ config:
         exit 1
       fi
 
+      # systemd 261 ships initrd-parse-etc.service with
+      # ExecStart=/usr/lib/systemd/systemd-sysroot-fstab-check, but FSDK's
+      # dracut does not install the multi-call symlink into the initramfs.
+      # Without it initrd-parse-etc fails right after the root filesystem
+      # mounts cleanly and systemd drops into emergency mode on every boot.
+      # Install the same symlink the systemd package ships on disk: the
+      # fstab-generator binary dispatches on its invocation name.
+      if ! [ -e usr/lib/systemd/systemd-sysroot-fstab-check ]; then
+        ln -sfn system-generators/systemd-fstab-generator usr/lib/systemd/systemd-sysroot-fstab-check
+      fi
+      if ! [ -L usr/lib/systemd/systemd-sysroot-fstab-check ]; then
+        echo "ERROR: systemd-sysroot-fstab-check symlink not installed in initrd" >&2
+        exit 1
+      fi
+
       find . | cpio -o -H newc | gzip -9 > /tmp/microraptor-target.initramfs
 
       SBAT=$'sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md\nuki.author.microraptor,1,Microraptor,uki.author.microraptor,1,https://github.com/HuntedRaven7/microraptor'
@@ -212,7 +227,7 @@ config:
         --linux="${TARGET_KERNEL}" \
         --initrd=/tmp/microraptor-target.initramfs \
         --sbat="${SBAT}" \
-        --cmdline="rw root=PARTLABEL=Microraptor-root-a rootwait rootfstype=xfs rd.debug console=ttyS0,115200 console=tty0" \
+        --cmdline="rw root=PARTLABEL=Microraptor-root-a rootwait rootfstype=xfs rd.debug console=tty0 console=ttyS0,115200" \
         --output=/target-root/boot/EFI/Linux/microraptor.efi
       cp /target-root/boot/EFI/Linux/microraptor.efi /layer/usr/lib/microraptor/microraptor.efi
 

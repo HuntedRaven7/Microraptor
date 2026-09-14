@@ -35,6 +35,10 @@ depends:
   # Filesystem resizing support for growing root/var on first boot
   - freedesktop-sdk.bst:components/xfsprogs.bst
 
+  # TPM2 runtime library required by systemd-creds to seal/decrypt credentials
+  # locked to the platform TPM2 device
+  - freedesktop-sdk.bst:components/tpm2-tss.bst
+
   # Sysext Compatibility Identity
   - microraptor/os-release-flatcar.bst
 
@@ -49,6 +53,7 @@ depends:
 
   # First-Boot Credentials Provisioning
   - microraptor/os-creds-prov.bst
+  - microraptor/os-cred-provision.bst
 
   # Reboot Coordination for Kured
   - microraptor/os-kured-hook.bst
