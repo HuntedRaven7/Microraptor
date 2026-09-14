@@ -200,6 +200,37 @@ config:
       ln -sf /usr/lib/systemd/system/nftables.service \
         /layer/etc/systemd/system/multi-user.target.wants/nftables.service
 
+      # FSDK ships no nftables.service unit, so the symlink above would dangle
+      # and the firewall would never load. Ship the unit ourselves (stock
+      # Fedora shape): sysusers -> nftables -> network-pre -> networkd is
+      # acyclic, and default dependencies keep it out of early sysinit.
+      mkdir -p /layer/usr/lib/systemd/system
+      printf '%s\n' \
+        '[Unit]' \
+        'Description=Load Microraptor nftables firewall' \
+        'Documentation=man:nft(8)' \
+        'Wants=network-pre.target' \
+        'Before=network-pre.target' \
+        'After=systemd-sysusers.service' \
+        '' \
+        '[Service]' \
+        'Type=oneshot' \
+        'RemainAfterExit=yes' \
+        'ExecStart=/usr/bin/nft --file /etc/nftables.conf' \
+        'ExecReload=/usr/bin/nft --file /etc/nftables.conf' \
+        'ExecStop=/usr/bin/nft flush ruleset' \
+        '' \
+        '[Install]' \
+        'WantedBy=multi-user.target' \
+        > /layer/usr/lib/systemd/system/nftables.service
+      chmod 0644 /layer/usr/lib/systemd/system/nftables.service
+
+      # Build stamp on the console banner: a photo of the login screen then
+      # identifies exactly which build is running, with no shell access needed.
+      mkdir -p /layer/etc/issue.d
+      printf 'Build %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        > /layer/etc/issue.d/90-build.issue
+
       # Kernel hardening sysctl settings
       mkdir -p /layer/etc/sysctl.d
       printf '%s\n' \
