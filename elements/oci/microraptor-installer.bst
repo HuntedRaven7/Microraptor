@@ -135,7 +135,7 @@ config:
         --kmoddir "/target-root/usr/lib/modules/${TARGET_KVER}" \
         --kernel-image "${TARGET_KERNEL_SYSROOT}" \
         --kver "${TARGET_KVER}" \
-        --kernel-cmdline "rw root=PARTLABEL=Microraptor-root-a rootwait rootfstype=xfs rd.debug console=tty0 console=ttyS0,115200" \
+        --kernel-cmdline "rw root=PARTLABEL=Microraptor-root-a rootwait rootfstype=xfs rd.debug console=ttyS0,115200 console=tty0 systemd.debug_shell=tty9" \
         /tmp/microraptor-target.initramfs
 
       mkdir -p /tmp/initrd-strip
@@ -227,7 +227,7 @@ config:
         --linux="${TARGET_KERNEL}" \
         --initrd=/tmp/microraptor-target.initramfs \
         --sbat="${SBAT}" \
-        --cmdline="rw root=PARTLABEL=Microraptor-root-a rootwait rootfstype=xfs rd.debug console=tty0 console=ttyS0,115200" \
+        --cmdline="rw root=PARTLABEL=Microraptor-root-a rootwait rootfstype=xfs rd.debug console=ttyS0,115200 console=tty0 systemd.debug_shell=tty9" \
         --output=/target-root/boot/EFI/Linux/microraptor.efi
       cp /target-root/boot/EFI/Linux/microraptor.efi /layer/usr/lib/microraptor/microraptor.efi
 

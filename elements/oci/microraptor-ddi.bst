@@ -116,6 +116,13 @@ config:
       # scaffolds, otherwise a pre-existing root entry suppresses the
       # passwd.hashed-password.root credential when sysusers runs.
       rm -f /layer/etc/passwd /layer/etc/group /layer/etc/shadow
+      # systemd-sysusers.service is gated on ConditionNeedsUpdate=|/etc (skipped
+      # when /etc/.updated is newer than /usr) and ConditionFirstBoot-dependent
+      # credential provisioning needs no pre-existing machine-id. Stale stamps
+      # from the base layers would silently skip user creation and brick console
+      # login, so strip them: the always-run drop-in below makes sysusers run
+      # regardless, and systemd regenerates both stamps/ids on first boot.
+      rm -f /layer/etc/.updated /layer/etc/machine-id /layer/etc/.pwd.lock
 
       # Run systemd-sysusers on first boot to create root/core and all system
       # users, and the credential provisioning service that feeds sysusers the
@@ -125,6 +132,31 @@ config:
         /layer/usr/lib/systemd/system/sysinit.target.wants/systemd-sysusers.service
       ln -sf /usr/lib/systemd/system/microraptor-cred-provision.service \
         /layer/usr/lib/systemd/system/sysinit.target.wants/microraptor-cred-provision.service
+
+      # Console login on the active VT. The 90-systemd.preset enable getty@.service
+      # is never applied in this image-first flow (systemd-firstboot is masked and
+      # nothing runs preset-all), so without an explicit symlink no getty instance
+      # is pulled into getty.target and the boot finishes with no login prompt.
+      mkdir -p /layer/usr/lib/systemd/system/getty.target.wants
+      ln -sf /usr/lib/systemd/system/getty@.service \
+        /layer/usr/lib/systemd/system/getty.target.wants/getty@tty1.service
+
+      # Same preset problem for networking and SSH: the 90-systemd.preset
+      # (systemd-networkd, systemd-resolved) and zz-enable-sshd.preset enables
+      # never fire, so without explicit symlinks the installed OS has no
+      # network and no sshd. Wire them into multi-user.target explicitly.
+      ln -sf /usr/lib/systemd/system/systemd-networkd.service \
+        /layer/etc/systemd/system/multi-user.target.wants/systemd-networkd.service
+      ln -sf /usr/lib/systemd/system/systemd-resolved.service \
+        /layer/etc/systemd/system/multi-user.target.wants/systemd-resolved.service
+      ln -sf /usr/lib/systemd/system/sshd.service \
+        /layer/etc/systemd/system/multi-user.target.wants/sshd.service
+
+      # DHCP on all ethernet interfaces (systemd ships no default that
+      # matches physical NICs, so without this networkd stays silent).
+      mkdir -p /layer/etc/systemd/network
+      printf '[Match]\nName=en* eth* ens* enp*\n\n[Network]\nDHCP=yes\n' \
+        > /layer/etc/systemd/network/80-dhcp.network
 
       # run0-based privilege escalation: wheel group gets passwordless polkit access
       mkdir -p /layer/etc/polkit-1/rules.d
