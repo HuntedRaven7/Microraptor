@@ -1,0 +1,17 @@
+[Unit]
+Description=First boot network configuration
+ConditionPathExists=!/var/lib/first-boot-done
+After=systemd-sysusers.service systemd-tmpfiles-setup.service NetworkManager.service
+Before=sshd.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '/usr/bin/nmtui || true'
+ExecStartPost=/usr/bin/touch /var/lib/first-boot-done
+StandardInput=tty
+StandardOutput=tty
+TTYPath=/dev/console
+Environment=TERM=linux
+
+[Install]
+WantedBy=multi-user.target

@@ -58,6 +58,10 @@ build-depends:
   - filename: microraptor/os-rootfs.bst
     config:
       location: /target-root
+  # Uncompressed k0s sysext staged into the installer initrd for offline install
+  - filename: oci/k0s-sysext.bst
+    config:
+      location: /k0s
 
 variables:
   installer-version: "%{release-version}"
@@ -130,12 +134,12 @@ config:
       cp -a /usr/lib/dracut/* "/target-root/usr/lib/dracut/"
 
       dracut -v --reproducible --no-machineid --no-hostonly \
-         --add-drivers "virtio virtio_blk virtio_pci virtio_scsi nvme nvme_core ahci libata sd_mod mmc_core mmc_block sdhci sdhci_acpi cqhci uas usb-storage xfs erofs overlay iwldvm iwlmvm ath9k ath10k ath11k mt7921 mt7922 mt7925 rtl8xxxu" \
+         --add-drivers "virtio virtio_blk virtio_pci virtio_scsi nvme nvme_core ahci libata sd_mod mmc_core mmc_block sdhci sdhci_acpi cqhci uas usb-storage xfs erofs overlay iwlwifi iwldvm iwlmvm ath9k ath10k ath11k mt7921e mt7925e rtl8xxxu" \
         --filesystems "xfs vfat" \
         --kmoddir "/target-root/usr/lib/modules/${TARGET_KVER}" \
         --kernel-image "${TARGET_KERNEL_SYSROOT}" \
         --kver "${TARGET_KVER}" \
-        --kernel-cmdline "rw root=PARTLABEL=Microraptor-root-a rootwait rootfstype=xfs rd.debug console=ttyS0,115200 console=tty0 systemd.debug_shell=tty9" \
+        --kernel-cmdline "ro root=PARTLABEL=Microraptor-root-a rootwait rootfstype=xfs rd.debug console=ttyS0,115200 console=tty0 systemd.debug_shell=tty9" \
         /tmp/microraptor-target.initramfs
 
       mkdir -p /tmp/initrd-strip
@@ -219,6 +223,11 @@ config:
         exit 1
       fi
 
+      # Stage the offline k0s sysext into the installer initrd so the var
+      # partition can seed it without network at install time.
+      cp /k0s/k0s-*.raw /layer/k0s.raw
+      ls -lh /layer/k0s.raw
+
       find . | cpio -o -H newc | gzip -9 > /tmp/microraptor-target.initramfs
 
       SBAT=$'sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md\nuki.author.microraptor,1,Microraptor,uki.author.microraptor,1,https://github.com/HuntedRaven7/microraptor'
@@ -227,9 +236,16 @@ config:
         --linux="${TARGET_KERNEL}" \
         --initrd=/tmp/microraptor-target.initramfs \
         --sbat="${SBAT}" \
-        --cmdline="rw root=PARTLABEL=Microraptor-root-a rootwait rootfstype=xfs rd.debug console=ttyS0,115200 console=tty0 systemd.debug_shell=tty9" \
-        --output=/target-root/boot/EFI/Linux/microraptor.efi
-      cp /target-root/boot/EFI/Linux/microraptor.efi /layer/usr/lib/microraptor/microraptor.efi
+        --cmdline="ro root=PARTLABEL=Microraptor-root-a rootwait rootfstype=xfs rd.debug console=ttyS0,115200 console=tty0 systemd.debug_shell=tty9" \
+        --output=/target-root/boot/EFI/Linux/microraptor-a.efi
+      ukify build \
+        --linux="${TARGET_KERNEL}" \
+        --initrd=/tmp/microraptor-target.initramfs \
+        --sbat="${SBAT}" \
+        --cmdline="ro root=PARTLABEL=Microraptor-root-b rootwait rootfstype=xfs rd.debug console=ttyS0,115200 console=tty0 systemd.debug_shell=tty9" \
+        --output=/target-root/boot/EFI/Linux/microraptor-b.efi
+      cp /target-root/boot/EFI/Linux/microraptor-a.efi /layer/usr/lib/microraptor/microraptor-a.efi
+      cp /target-root/boot/EFI/Linux/microraptor-b.efi /layer/usr/lib/microraptor/microraptor-b.efi
 
     # -- Step 1d: Configure installer services and users ------------------
     - |
@@ -449,11 +465,18 @@ config:
         if mount -t xfs "${ROOT_PART}" /mnt/root; then
           mkdir -p /mnt/root/boot/efi
           if mount -t vfat "${ESP_PART}" /mnt/root/boot/efi; then
-            if [ -f /usr/lib/microraptor/microraptor.efi ]; then
-              mkdir -p /mnt/root/boot/efi/EFI/Linux
-              cp /usr/lib/microraptor/microraptor.efi /mnt/root/boot/efi/EFI/Linux/microraptor.efi
-              echo "==> ensure_bootloader: copied UKI to ESP"
-            fi
+            mkdir -p /mnt/root/boot/efi/EFI/Linux /mnt/root/boot/efi/loader/entries
+            for uki in microraptor-a.efi microraptor-b.efi; do
+              if [ -f "/usr/lib/microraptor/${uki}" ]; then
+                cp "/usr/lib/microraptor/${uki}" "/mnt/root/boot/efi/EFI/Linux/${uki}"
+                echo "==> ensure_bootloader: copied ${uki} to ESP"
+              fi
+            done
+            # A/B boot entries: slot A is default, slot B is the fallback.
+            printf 'title   Microraptor (A)\nlinux   /EFI/Linux/microraptor-a.efi\n' \
+              > /mnt/root/boot/efi/loader/entries/microraptor-a.conf
+            printf 'title   Microraptor (B - fallback)\nlinux   /EFI/Linux/microraptor-b.efi\n' \
+              > /mnt/root/boot/efi/loader/entries/microraptor-b.conf
             echo "==> ensure_bootloader: installing systemd-boot..."
             if bootctl install --esp-path=/mnt/root/boot/efi; then
               echo "==> ensure_bootloader: bootctl install succeeded"

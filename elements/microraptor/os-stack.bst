@@ -24,20 +24,25 @@ depends:
   # Remote access for standard server administration
   - freedesktop-sdk.bst:components/openssh-systemd.bst
 
-  # SSH enablement drop-ins
+  # SSH enablement drop-ins and hardened access gating
   - microraptor/os-sshd-preset.bst
   - microraptor/os-sshd-config.bst
+  - microraptor/os-sshd-access.bst
 
   # Full FSDK kernel + full firmware for the installed system
   - freedesktop-sdk.bst:components/linux.bst
   - freedesktop-sdk.bst:components/linux-firmware.bst
+  - freedesktop-sdk.bst:components/wireless-regdb-bin.bst
 
   # Filesystem resizing support for growing root/var on first boot
   - freedesktop-sdk.bst:components/xfsprogs.bst
 
-  # TPM2 runtime library required by systemd-creds to seal/decrypt credentials
-  # locked to the platform TPM2 device
-  - freedesktop-sdk.bst:components/tpm2-tss.bst
+  # Systemd-native tmpfiles for core operator home and authorized_keys directory
+  - microraptor/os-tmpfiles.bst
+
+  # Passwordless sudo for wheel group (replaces polkit run0 escalation)
+  - microraptor/os-sudo.bst
+  - freedesktop-sdk.bst:components/sudo.bst
 
   # Sysext Compatibility Identity
   - microraptor/os-release-flatcar.bst
@@ -51,15 +56,20 @@ depends:
   # gpg binary required by systemd-sysupdate to verify SHA256SUMS.gpg
   - freedesktop-sdk.bst:components/gnupg.bst
 
-  # First-Boot Credentials Provisioning
+  # First-Boot User Provisioning
   - microraptor/os-creds-prov.bst
-  - microraptor/os-cred-provision.bst
+
+  # First-Boot Network Configuration (nmtui)
+  - microraptor/os-first-boot.bst
 
   # Reboot Coordination for Kured
   - microraptor/os-kured-hook.bst
 
   # Network Manager configuration and enablement
   - freedesktop-sdk.bst:components/networkmanager.bst
+  # Wi-Fi association backend for NetworkManager (D-Bus activated,
+  # no explicit enablement symlink needed)
+  - freedesktop-sdk.bst:components/wpa-supplicant.bst
   - microraptor/os-network-manager.bst
 
   # System Management Justfile

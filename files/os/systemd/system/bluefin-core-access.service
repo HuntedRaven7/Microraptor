@@ -1,0 +1,13 @@
+[Unit]
+Description=Verify core SSH authorization
+Requires=bluefin-core-ssh-keys.service var.mount
+After=bluefin-core-ssh-keys.service var.mount systemd-tmpfiles-setup.service
+Before=sshd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/test -s /var/home/core/.ssh/authorized_keys
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

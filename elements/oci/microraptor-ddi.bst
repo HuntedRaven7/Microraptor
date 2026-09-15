@@ -77,6 +77,12 @@ config:
       # Mask systemd-firstboot to prevent interactive prompts on headless first boot
       mkdir -p /layer/etc/systemd/system
       ln -sf /dev/null /layer/etc/systemd/system/systemd-firstboot.service
+      # Mask the homed first-boot wizard too: it ships statically wanted and
+      # prompts interactively for a homed user on every first boot, blocking
+      # getty (Type=idle) until answered. homed has no backend in this image,
+      # so answering only hangs. Masking is safe: Home Area Activation already
+      # finishes without it.
+      ln -sf /dev/null /layer/etc/systemd/system/systemd-homed-firstboot.service
 
       # Enable auditd with minimal ruleset for security compliance
       mkdir -p /layer/etc/audit/rules.d
@@ -107,31 +113,20 @@ config:
       # partition must degrade gracefully instead of dropping into emergency.
       printf '/dev/disk/by-partlabel/var /var xfs defaults,nofail,x-systemd.device-timeout=10 0 0\n' > /layer/etc/fstab
 
-      # Ensure all standard virtual, serial, and hypervisor consoles allow root login
-      printf 'tty0\ntty1\ntty2\ntty3\ntty4\ntty5\ntty6\nttyS0\nttyS1\nconsole\nhvc0\n' > /layer/etc/securetty
-
       # Accounts are owned by systemd-sysusers at first boot, so passwd/shadow
-      # are created with the root password hash from the provisioned credential
-      # store instead of being pre-seeded locked. Remove the extra-fs /etc
-      # scaffolds, otherwise a pre-existing root entry suppresses the
-      # passwd.hashed-password.root credential when sysusers runs.
+      # are removed from the image. Stale stamps from the base layers would
+      # silently skip user creation and brick console login, so strip them:
+      # the always-run drop-in makes sysusers run regardless, and systemd
+      # regenerates both stamps/ids on first boot.
       rm -f /layer/etc/passwd /layer/etc/group /layer/etc/shadow
-      # systemd-sysusers.service is gated on ConditionNeedsUpdate=|/etc (skipped
-      # when /etc/.updated is newer than /usr) and ConditionFirstBoot-dependent
-      # credential provisioning needs no pre-existing machine-id. Stale stamps
-      # from the base layers would silently skip user creation and brick console
-      # login, so strip them: the always-run drop-in below makes sysusers run
-      # regardless, and systemd regenerates both stamps/ids on first boot.
       rm -f /layer/etc/.updated /layer/etc/machine-id /layer/etc/.pwd.lock
 
       # Run systemd-sysusers on first boot to create root/core and all system
-      # users, and the credential provisioning service that feeds sysusers the
-      # root password (TPM2-sealed when available).
+      # users. The always-run drop-in clears ConditionFirstBoot so this runs
+      # even when machine-id already exists.
       mkdir -p /layer/usr/lib/systemd/system/sysinit.target.wants
       ln -sf /usr/lib/systemd/system/systemd-sysusers.service \
         /layer/usr/lib/systemd/system/sysinit.target.wants/systemd-sysusers.service
-      ln -sf /usr/lib/systemd/system/microraptor-cred-provision.service \
-        /layer/usr/lib/systemd/system/sysinit.target.wants/microraptor-cred-provision.service
 
       # Console login on the active VT. The 90-systemd.preset enable getty@.service
       # is never applied in this image-first flow (systemd-firstboot is masked and
@@ -141,33 +136,46 @@ config:
       ln -sf /usr/lib/systemd/system/getty@.service \
         /layer/usr/lib/systemd/system/getty.target.wants/getty@tty1.service
 
-      # Same preset problem for networking and SSH: the 90-systemd.preset
-      # (systemd-networkd, systemd-resolved) and zz-enable-sshd.preset enables
-      # never fire, so without explicit symlinks the installed OS has no
-      # network and no sshd. Wire them into multi-user.target explicitly.
-      ln -sf /usr/lib/systemd/system/systemd-networkd.service \
-        /layer/etc/systemd/system/multi-user.target.wants/systemd-networkd.service
-      ln -sf /usr/lib/systemd/system/systemd-resolved.service \
-        /layer/etc/systemd/system/multi-user.target.wants/systemd-resolved.service
+      # NetworkManager is the primary network stack; remove networkd/resolved
+      # symlinks so they don't conflict with NM at boot.
+      rm -f /layer/etc/systemd/system/multi-user.target.wants/systemd-networkd.service
+      rm -f /layer/etc/systemd/system/multi-user.target.wants/systemd-resolved.service
+      ln -sf /usr/lib/systemd/system/NetworkManager.service \
+        /layer/etc/systemd/system/multi-user.target.wants/NetworkManager.service
+
+      # First boot: launch nmtui on the console so the operator can configure
+      # network interactively. The service stamps /var/lib/first-boot-done on
+      # completion and never runs again. It runs alongside getty/sshd rather
+      # than blocking them.
+      ln -sf /usr/lib/systemd/system/microraptor-first-boot-network.service \
+        /layer/etc/systemd/system/multi-user.target.wants/microraptor-first-boot-network.service
+
+      # sshd is enabled by preset but gated by bluefin-core-access.service,
+      # which waits for core authorized_keys to exist. In the image-first
+      # flow presets never fire, so explicitly enable both the gating unit
+      # and sshd itself.
+      ln -sf /usr/lib/systemd/system/bluefin-core-access.service \
+        /layer/etc/systemd/system/multi-user.target.wants/bluefin-core-access.service
+      ln -sf /usr/lib/systemd/system/bluefin-core-ssh-keys.service \
+        /layer/etc/systemd/system/multi-user.target.wants/bluefin-core-ssh-keys.service
       ln -sf /usr/lib/systemd/system/sshd.service \
         /layer/etc/systemd/system/multi-user.target.wants/sshd.service
 
-      # DHCP on all ethernet interfaces (systemd ships no default that
-      # matches physical NICs, so without this networkd stays silent).
-      mkdir -p /layer/etc/systemd/network
-      printf '[Match]\nName=en* eth* ens* enp*\n\n[Network]\nDHCP=yes\n' \
-        > /layer/etc/systemd/network/80-dhcp.network
+      # NetworkManager auto-manages wired devices and uses DHCP by default,
+      # but the immutable image flow can leave interfaces unmanaged without
+      # an explicit config. Write a drop-in so the operator sees devices
+      # in nmtui and gets connectivity out of the box.
+      mkdir -p /layer/etc/NetworkManager/conf.d
+      printf '[main]\nplugins=keyfile\n\n[device]\nwifi.scan-rand-mac-address=no\n\n[keyfile]\nunmanaged-devices=none\n' \
+        > /layer/etc/NetworkManager/conf.d/10-manage-all.conf
 
-      # run0-based privilege escalation: wheel group gets passwordless polkit access
-      mkdir -p /layer/etc/polkit-1/rules.d
+      # Passwordless privilege escalation for the wheel group via sudo
+      mkdir -p /layer/etc/sudoers.d
       printf '%s\n' \
-        'polkit.addRule(function(action, subject) {' \
-        '  if (subject.isInGroup("wheel")) {' \
-        '    return polkit.Result.YES;' \
-        '  }' \
-        '});' \
-        > /layer/etc/polkit-1/rules.d/50-core-wheel.rules
-      chmod 0644 /layer/etc/polkit-1/rules.d/50-core-wheel.rules
+        '%wheel ALL=(ALL:ALL) NOPASSWD: ALL' \
+        > /layer/etc/sudoers.d/10-wheel-nopasswd
+      chmod 0644 /layer/etc/sudoers.d/10-wheel-nopasswd
+      chmod 4755 /layer/usr/bin/sudo
 
       # Basic nftables firewall: allow SSH, DHCP, outbound traffic; drop everything else
       mkdir -p /layer/etc/nftables.d
@@ -257,15 +265,9 @@ config:
         > /layer/etc/sysctl.d/99-microraptor-hardening.conf
       chmod 0644 /layer/etc/sysctl.d/99-microraptor-hardening.conf
 
-      mkdir -p /layer/home/core
-      chmod 0755 /layer/home/core
-
-      # Pre-generate SSH host keys for first boot remote diagnostics
-      mkdir -p /layer/etc/ssh
-      ssh-keygen -q -N "" -t ed25519 -f /layer/etc/ssh/ssh_host_ed25519_key
-      ssh-keygen -q -N "" -t rsa -b 3072 -f /layer/etc/ssh/ssh_host_rsa_key
-      chmod 0600 /layer/etc/ssh/ssh_host_*_key
-      chmod 0644 /layer/etc/ssh/ssh_host_*.pub
+      mkdir -p /layer/var/home/core
+      chmod 0700 /layer/var/home/core
+      ln -sfn /var/home /layer/home
 
       # Sum actual file sizes across bind mounts (du -sb reports content bytes, not overlay blocks).
       ROOT_BYTES=$(du -sb /layer | cut -f1)

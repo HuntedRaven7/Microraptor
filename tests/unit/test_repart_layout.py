@@ -107,8 +107,8 @@ def test_config_ordering_prefixes_are_unique():
 
 def test_expected_partition_types_are_present_exactly_once():
     types = [section["Type"] for section in partitions().values()]
-    assert sorted(types) == ["esp", "root", "var"], (
-        "the target layout must be exactly one esp, one root and one var "
+    assert sorted(types) == ["esp", "root", "root", "var"], (
+        "the target layout must be exactly one esp, two root (A/B) and one var "
         f"partition, got {sorted(types)}"
     )
 
@@ -209,16 +209,6 @@ def test_root_partition_label_is_matched_by_the_sysupdate_root_transfer():
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Known gap, tracked in docs/MVP_1_0_READINESS.md: 50-root.transfer names "
-        "root-a and root-b, but the installer provisions only root-a, so "
-        "systemd-sysupdate has no inactive slot to stage into and no atomic "
-        "rollback path. When root-b is added this test XPASSes and must be "
-        "un-xfailed."
-    ),
-)
 def test_every_sysupdate_root_target_is_provisioned_by_the_installer():
     targets = set(sysupdate_root_targets())
     provisioned = {
@@ -226,7 +216,7 @@ def test_every_sysupdate_root_target_is_provisioned_by_the_installer():
         for section in partitions().values()
         if section["Type"] == "root"
     }
-    assert targets <= provisioned, (
-        f"sysupdate targets {sorted(targets - provisioned)} are never created "
-        "by files/installer/repart.d/"
+    assert targets == provisioned, (
+        f"sysupdate targets {targets} must match the root partitions "
+        f"provisioned by the installer {provisioned}"
     )

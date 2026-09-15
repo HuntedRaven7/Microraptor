@@ -1,0 +1,16 @@
+[Unit]
+Description=Generate persistent SSH host keys
+ConditionPathExists=!/var/lib/ssh/ssh_host_ed25519_key
+ConditionPathExists=!/var/lib/ssh/ssh_host_rsa_key
+After=var.mount
+Before=sshd.service bluefin-core-access.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/ssh-keygen -q -t ed25519 -f /var/lib/ssh/ssh_host_ed25519_key -N ""
+ExecStart=/usr/bin/ssh-keygen -q -t rsa -b 3072 -f /var/lib/ssh/ssh_host_rsa_key -N ""
+ExecStartPost=/usr/bin/chmod 0600 /var/lib/ssh/ssh_host_ed25519_key /var/lib/ssh/ssh_host_rsa_key
+ExecStartPost=/usr/bin/chmod 0644 /var/lib/ssh/ssh_host_ed25519_key.pub /var/lib/ssh/ssh_host_rsa_key.pub
+
+[Install]
+RequiredBy=sshd.service

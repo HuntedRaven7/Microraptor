@@ -53,6 +53,7 @@ validate:
     python3 .github/scripts/check-release-version.py
     just bst show --deps all oci/microraptor-ddi.bst
     just bst show --deps all oci/microraptor-installer.bst
+    just bst show --deps all oci/k0s-sysext.bst
 
 # Run the unit test suite (pytest + bats).
 [group('dev')]
@@ -79,6 +80,10 @@ export-ddi: build-ddi
 
 [group('installer')]
 build-installer:
+    just bst artifact delete microraptor/os-first-boot.bst || true
+    just bst artifact delete microraptor/os-sshd-access.bst || true
+    just bst artifact delete microraptor/os-sudo.bst || true
+    just bst artifact delete microraptor/os-tmpfiles.bst || true
     just bst build oci/microraptor-installer.bst
 
 [group('build')]
@@ -105,6 +110,23 @@ export-pxe: export-installer
     @test -n "$(find dist/ -maxdepth 1 -type f -name 'microraptor-pxe-vmlinuz-*' -print -quit)" || { echo "ERROR: PXE kernel was not exported." >&2; exit 1; }
     @test -n "$(find dist/ -maxdepth 1 -type f -name 'microraptor-pxe-initrd-*.cpio.gz' -print -quit)" || { echo "ERROR: PXE initrd was not exported." >&2; exit 1; }
     @echo "==> wrote PXE artifacts:" && ls -lh dist/microraptor-pxe-*
+
+# -- k0s systemd-sysext -------------------------------------------------------
+# Produces a systemd-sysext extension image for k0s.
+
+[group('sysext')]
+build-sysext:
+    just bst build oci/k0s-sysext.bst
+
+[group('sysext')]
+export-sysext: build-sysext
+    rm -rf dist/sysext dist/sysext-checkout
+    mkdir -p dist/sysext-checkout dist/sysext
+    just bst artifact checkout oci/k0s-sysext.bst --directory /src/dist/sysext-checkout
+    cp dist/sysext-checkout/k0s-*.raw.zst dist/sysext/
+    cp dist/sysext-checkout/SHA256SUMS dist/sysext/
+    rm -rf dist/sysext-checkout
+    @echo "==> wrote k0s sysext:" && ls -lh dist/sysext/
 
 # Sign exported EFI artifacts for Secure Boot (requires sbsigntool).
 # SECUREBOOT_KEY and SECUREBOOT_CERT must point to the private key and certificate files.
@@ -194,10 +216,13 @@ show-me-the-future:
 
     just build-installer
     just export-installer
+    just build-sysext
+    just export-sysext
 
     cp dist/microraptor-installer-*.raw.zst "$WORKDIR/installer.raw.zst"
     cp dist/microraptor-pxe-vmlinuz-* "$WORKDIR/installer.vmlinuz"
     cp dist/microraptor-pxe-initrd-*.cpio.gz "$WORKDIR/installer.initrd"
+    cp dist/sysext/k0s-*.raw.zst "$WORKDIR/k0s.raw.zst"
     zstd -d "$WORKDIR/installer.raw.zst" -o "$WORKDIR/installer.raw"
     TARGET_SIZE="${SHOW_ME_THE_FUTURE_DISK_SIZE:-16G}"
     truncate -s "${TARGET_SIZE}" "$WORKDIR/target.raw"

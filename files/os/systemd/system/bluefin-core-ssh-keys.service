@@ -1,0 +1,14 @@
+[Unit]
+Description=Provision core SSH authorized_keys from systemd-creds
+After=systemd-sysusers.service systemd-tmpfiles-setup.service var.mount
+Before=bluefin-core-access.service sshd.service
+ConditionPathExists=!/var/home/core/.ssh/authorized_keys
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemd-creds cat ssh.authorized_keys > /var/home/core/.ssh/authorized_keys
+ExecStartPost=/usr/bin/chmod 0600 /var/home/core/.ssh/authorized_keys
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

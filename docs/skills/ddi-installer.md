@@ -80,16 +80,14 @@ terminal-based interactive installation that:
 The target UKI cmdline and DDI unit wiring in `microraptor-installer.bst` /
 `microraptor-ddi.bst` follow these rules (learned from hardware bring-up):
 
-- systemd presets never fire in the image-first flow (`systemd-firstboot` is
+ - systemd presets never fire in the image-first flow (`systemd-firstboot` is
   masked, nothing runs `preset-all`). Every service that must start on the
-  installed OS (getty, networkd, resolved, sshd, sysusers, cred-provision)
-  needs an explicit symlink in a `.wants` dir baked into the DDI.
+  installed OS (getty, networkd, resolved, sshd, sysusers,
+  bluefin-core-access) needs an explicit symlink in a `.wants` dir baked into
+  the DDI.
 - `/dev/console` is the *last* `console=` argument. The target cmdline lists
   `console=ttyS0,115200` first and `console=tty0` last so systemd/dracut
   output appears on the laptop screen while serial still works.
-- `microraptor-cred-provision.service` must not order `After=systemd-udevd.service`
-  (creates a udev → cred-provision → sysusers → tmpfiles-setup-dev cycle that
-  makes systemd delete the sysusers job, so no system users are ever created).
 - The dracut initramfs needs the
   `usr/lib/systemd/systemd-sysroot-fstab-check → system-generators/systemd-fstab-generator`
   symlink or `initrd-parse-etc.service` fails and every boot drops to emergency mode.

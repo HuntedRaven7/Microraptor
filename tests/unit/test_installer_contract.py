@@ -27,15 +27,15 @@ def _published_uki_cmdline(installer_element: str) -> str:
     return match.group(1)
 
 
-def _target_uki_cmdline(installer_element: str) -> str:
-    match = re.search(
+def _target_uki_cmdlines(installer_element: str) -> list[str]:
+    matches = re.findall(
         r'ukify build\s+.*?--cmdline="([^"]+)"\s+'
-        r"[ \t\\\r\n]+--output=/target-root/boot/EFI/Linux/microraptor\.efi",
+        r"[ \t\\\r\n]+--output=/target-root/boot/EFI/Linux/microraptor-[ab]\.efi",
         installer_element,
         flags=re.DOTALL,
     )
-    assert match, "target UKI ukify command must be present"
-    return match.group(1)
+    assert len(matches) == 2, f"expected 2 target UKIs (A/B), found {len(matches)}"
+    return matches
 
 
 def test_installer_runtime_and_boot_contracts() -> None:
@@ -43,14 +43,19 @@ def test_installer_runtime_and_boot_contracts() -> None:
     installer_element = INSTALLER_ELEMENT.read_text(encoding="utf-8")
     justfile = JUSTFILE.read_text(encoding="utf-8")
     published_uki_cmdline = _published_uki_cmdline(installer_element)
-    target_uki_cmdline = _target_uki_cmdline(installer_element)
+    target_uki_cmdlines = _target_uki_cmdlines(installer_element)
 
     assert "console=tty0 rw" in published_uki_cmdline
     assert "unattended" not in published_uki_cmdline
-    assert target_uki_cmdline == "rw root=PARTLABEL=Microraptor-root-a rootwait rootfstype=xfs rd.debug console=ttyS0,115200 console=tty0"
+    assert all(
+        cmdline.startswith("ro root=PARTLABEL=Microraptor-root-")
+        and "rootwait rootfstype=xfs rd.debug console=ttyS0,115200 console=tty0 systemd.debug_shell=tty9"
+        in cmdline
+        for cmdline in target_uki_cmdlines
+    )
     assert (
-        '-append "systemd.unit=system-install.target '
-        'console=tty0 console=ttyS0,115200 rw unattended"'
+        'systemd.unit=system-install.target '
+        'console=tty0 console=ttyS0,115200 rw unattended'
     ) in justfile
 
 
@@ -105,7 +110,7 @@ def test_target_initramfs_preloads_sysext_filesystem_drivers() -> None:
     installer_element = INSTALLER_ELEMENT.read_text(encoding="utf-8")
 
     assert (
-        '--add-drivers "virtio virtio_blk virtio_pci virtio_scsi nvme nvme_core ahci libata sd_mod mmc_core mmc_block sdhci sdhci_acpi cqhci uas usb-storage xfs erofs overlay iwldvm iwlmvm ath9k ath10k ath11k mt7921 mt7922 mt7925 rtl8xxxu"'
+        '--add-drivers "virtio virtio_blk virtio_pci virtio_scsi nvme nvme_core ahci libata sd_mod mmc_core mmc_block sdhci sdhci_acpi cqhci uas usb-storage xfs erofs overlay iwlwifi iwldvm iwlmvm ath9k ath10k ath11k mt7921e mt7925e rtl8xxxu"'
         in installer_element
     )
 

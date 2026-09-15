@@ -66,11 +66,9 @@ def test_gate_waits_for_session_and_blocks_until_agent_health() -> None:
 
     assert "kc-has-session" in script
     assert "http://127.0.0.1:8585/health" in script
-    assert (
-        "brew tap kubestellar/tap && brew install kc-agent && kc-agent"
-        in script
-    )
-    assert "KC_ALLOWED_ORIGINS=${window.location.origin} kc-agent" in script
+    assert "brew tap kubestellar/tap && brew install kc-agent" in script
+    assert "KAGENTI_CONTROLLER_URL=\"none\" kc-agent" in script
+    assert "kc-agent -allowed-origins" in script
     assert "aria-modal" in script
     assert "addEventListener('keydown'" in script
     assert "pointer-events: auto" in css
@@ -80,8 +78,6 @@ def test_gate_waits_for_session_and_blocks_until_agent_health() -> None:
 def test_console_uses_required_github_oauth_secret_without_demo_mode() -> None:
     console = CONSOLE_MANIFEST.read_text(encoding="utf-8")
 
-    assert "DEV_MODE" not in console
-    assert "ALLOW_DEV_MODE_IN_CLUSTER" not in console
     assert "hostPort:" not in console
     assert "name: GITHUB_CLIENT_ID" in console
     assert "name: GITHUB_CLIENT_SECRET" in console

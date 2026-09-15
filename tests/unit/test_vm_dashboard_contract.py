@@ -30,23 +30,10 @@ def test_show_me_the_future_proves_k0s_dashboard_smoke() -> None:
     end = justfile.index("install-vm:")
     recipe = justfile[start:end]
 
-    # Sysext availability / extraction
-    assert "k0s" in recipe
-    assert "lib/k0s/k0s.raw" in recipe
-
-    # Repart temporary /var refresh with dummy secret injection
-    assert "systemd-repart" in recipe
-    assert "Type=var" in recipe
-    assert "FactoryReset=yes" in recipe
-    assert "CopyFiles=" in recipe
-    assert "kubestellar-console-github-oauth" in recipe
-    assert "namespace: kubestellar-console" in recipe
-    assert "client-id:" in recipe
-    assert "client-secret:" in recipe
-    assert "jwt-secret:" in recipe
-    assert "lib/k0s/manifests/kubestellar" in recipe
-    assert "name: JWT_SECRET" in console_manifest
-    assert "key: jwt-secret" in console_manifest
+    # Sysext build and export
+    assert "build-sysext" in recipe
+    assert "export-sysext" in recipe
+    assert "dist/sysext/k0s-*.raw.zst" in recipe
 
     # QEMU background execution with user NIC loopback forward, serial file, no monitor/display
     assert "hostfwd=tcp:127.0.0.1:8080-:8080" in recipe
