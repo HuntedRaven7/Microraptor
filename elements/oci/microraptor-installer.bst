@@ -378,14 +378,14 @@ config:
             lsblk -p -n -l -o NAME,FSTYPE,SIZE,LABEL "${TARGET_DISK}" || true
 
             # Verify UKI exists before installing
-            if [ ! -f /usr/lib/microraptor/microraptor.efi ]; then
-              echo "ERROR: UKI not found at /usr/lib/microraptor/microraptor.efi" >&2
+            if [ ! -f /usr/lib/microraptor/microraptor-a.efi ]; then
+              echo "ERROR: UKI not found at /usr/lib/microraptor/microraptor-a.efi" >&2
               exit 1
             fi
-            echo "==> UKI found at /usr/lib/microraptor/microraptor.efi"
+            echo "==> UKI found at /usr/lib/microraptor/microraptor-a.efi"
 
              /usr/bin/systemd-sysinstall \
-                --kernel=/usr/lib/microraptor/microraptor.efi \
+                --kernel=/usr/lib/microraptor/microraptor-a.efi \
                 --erase=yes \
                 --confirm=no \
                 --summary=no \
@@ -435,13 +435,13 @@ config:
           ;;
         *)
           echo "==> Running in INTERACTIVE mode..."
-          if [ ! -f /usr/lib/microraptor/microraptor.efi ]; then
-            echo "ERROR: UKI not found at /usr/lib/microraptor/microraptor.efi" >&2
+          if [ ! -f /usr/lib/microraptor/microraptor-a.efi ]; then
+            echo "ERROR: UKI not found at /usr/lib/microraptor/microraptor-a.efi" >&2
             exit 1
           fi
-          echo "==> UKI found at /usr/lib/microraptor/microraptor.efi"
+          echo "==> UKI found at /usr/lib/microraptor/microraptor-a.efi"
           /usr/bin/systemd-sysinstall \
-            --kernel=/usr/lib/microraptor/microraptor.efi \
+            --kernel=/usr/lib/microraptor/microraptor-a.efi \
             --variables=yes \
             --reboot=no \
             --copy-locale=yes \
@@ -591,7 +591,7 @@ config:
         echo "ERROR: system-install.target.wants/systemd-sysinstall.service is missing from the staged rootfs! FSDK systemd must be built with -Dsysinstall=true." >&2
         exit 1
       fi
-      if [ ! -f /layer/usr/lib/microraptor/microraptor.efi ]; then
+      if [ ! -f /layer/usr/lib/microraptor/microraptor-a.efi ]; then
         echo "ERROR: target UKI is missing from the staged rootfs!" >&2
         exit 1
       fi
@@ -717,7 +717,7 @@ config:
       zstd --rm -T0 -19 -q "${FNAME}" -o "${FNAME}.zst"
 
       # Also export the target UKI (.efi) for GitHub Releases and systemd-sysupdate
-      cp /layer/usr/lib/microraptor/microraptor.efi "microraptor-%{installer-version}.efi"
+      cp /layer/usr/lib/microraptor/microraptor-a.efi "microraptor-%{installer-version}.efi"
       # Export raw PXE inputs alongside the UKI. PXE users supply their own
       # kernel command line, so these remain separate from the fixed-cmdline UKI.
       INSTALLER_KVER="$(basename "$(find /layer/usr/lib/modules -mindepth 1 -maxdepth 1 -type d | head -n1)")"
