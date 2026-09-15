@@ -108,14 +108,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y sbsigntool
 
-      - name: Prepare Secure Boot signing keys
-        if: secrets.SECUREBOOT_PRIVATE_KEY != '' && secrets.SECUREBOOT_CERTIFICATE != ''
+      - name: Prepare release assets
         run: |
           set -euo pipefail
-          mkdir -p /tmp/secureboot
-          echo "${{ secrets.SECUREBOOT_PRIVATE_KEY }}" > /tmp/secureboot/key.pem
-          echo "${{ secrets.SECUREBOOT_CERTIFICATE }}" > /tmp/secureboot/cert.pem
-          chmod 600 /tmp/secureboot/key.pem
+          mkdir -p dist/release
+          cp dist/microraptor-installer-*.raw.zst dist/microraptor-*.efi dist/release/
+          cp dist/ddi/microraptor-ddi-*.raw.zst dist/release/
+          cp dist/sysext/k0s-*.raw.zst dist/release/
+          (cd dist/release && sha256sum --binary -- * > SHA256SUMS)
+          ls -lh dist/release/
 
       - name: Create or update GitHub Release
         env:

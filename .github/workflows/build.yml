@@ -72,7 +72,7 @@ jobs:
           just build-sysext
           just export-sysext
 
-   track-refs:
+  track-refs:
     if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'renovate/')
     runs-on: ubuntu-24.04
     timeout-minutes: 60
