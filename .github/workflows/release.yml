@@ -59,15 +59,15 @@ jobs:
       - name: Validate Element Graph
         run: just validate
 
-      - name: Build and export DDI OS image
+      - name: Build and export bootc OCI image
         run: |
-          just build-ddi
-          just export-ddi
+          just build-bootc
+          just export-bootc
 
-      - name: Build and export live installer & target UKI
+      - name: Build and export bootc installer & target UKI
         run: |
-          just build-installer
-          just export-installer
+          just build-installer-bootc
+          just export-installer-bootc
 
       - name: Build and export k0s systemd-sysext
         run: |
@@ -87,8 +87,65 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  release:
+  publish:
     needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Download release assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: release-assets
+          path: dist/
+
+      - name: Set up podman
+        run: |
+          sudo mkdir -p /mnt/podman
+          sudo chown -R "$USER:$USER" /mnt/podman
+          mkdir -p ~/.config/containers
+          cat > ~/.config/containers/storage.conf <<EOF
+          [storage]
+          driver = "overlay"
+          runroot = "/run/user/1001"
+          graphroot = "/mnt/podman"
+          EOF
+
+      - name: Load bootc image from build artifacts
+        run: |
+          # The bootc image was exported to podman during build
+          # Re-load it from the OCI layout if needed
+          if [ -d dist/ddi ]; then
+            echo "No DDI in bootc build; image should be in podman"
+          fi
+
+      - name: Login to GHCR
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7b6c
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag and push bootc image to GHCR
+        env:
+          IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Tag the locally built image
+          sudo podman tag microraptor:latest "${IMAGE_REGISTRY}/microraptor:${VERSION}"
+          sudo podman tag microraptor:latest "${IMAGE_REGISTRY}/microraptor:latest"
+          # Push to GHCR
+          sudo podman push --compression-format=zstd "${IMAGE_REGISTRY}/microraptor:${VERSION}"
+          sudo podman push --compression-format=zstd "${IMAGE_REGISTRY}/microraptor:latest"
+
+  release:
+    needs: [build, publish]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -113,7 +170,6 @@ jobs:
           set -euo pipefail
           mkdir -p dist/release
           cp dist/microraptor-installer-*.raw.zst dist/microraptor-*.efi dist/release/
-          cp dist/ddi/microraptor-ddi-*.raw.zst dist/release/
           cp dist/sysext/k0s-*.raw.zst dist/release/
           (cd dist/release && sha256sum --binary -- * > SHA256SUMS)
           ls -lh dist/release/

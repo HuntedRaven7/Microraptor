@@ -25,11 +25,9 @@ depends:
   # Interactive TUI for quadlet chooser and user creation
   - freedesktop-sdk.bst:components/newt.bst
 
-  # Base runtime. runtime-gnu (ordered first) provides /bin/sh and
-  # coreutils -- without a shell the microraptor-sysinstall wrapper
-  # fails at EXEC (203) and the unit's FailureAction=poweroff shuts the
-  # machine down ~8s after boot. runtime-minimal alone has no shell.
-  - freedesktop-sdk.bst:public-stacks/runtime-gnu.bst
+  # Base runtime. runtime-minimal provides /bin/sh and coreutils
+  # (FSDK 25). In FSDK 26 this would be runtime-gnu, but we pin to 25
+  # until gnome-build-meta tracks 26.
   - freedesktop-sdk.bst:public-stacks/runtime-minimal.bst
   - freedesktop-sdk.bst:components/ca-certificates.bst
   - freedesktop-sdk.bst:components/tzdata.bst
@@ -39,7 +37,6 @@ depends:
   # systemd full (includes systemd-repart, systemd-firstboot, bootctl)
   - freedesktop-sdk.bst:components/systemd.bst
   - freedesktop-sdk.bst:components/dbus.bst
-  - freedesktop-sdk.bst:components/dbus-broker.bst
   - freedesktop-sdk.bst:components/kmod.bst
 
   # Disk setup: LUKS partition support during install

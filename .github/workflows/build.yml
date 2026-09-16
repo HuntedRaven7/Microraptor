@@ -57,15 +57,15 @@ jobs:
           restore-keys: |
             ccache-linux-7.2.4-
 
-      - name: Build and export DDI OS image
+      - name: Build and export bootc OCI image
         run: |
-          just build-ddi
-          just export-ddi
+          just build-bootc
+          just export-bootc
 
-      - name: Build and export live installer & target UKI
+      - name: Build and export bootc installer & target UKI
         run: |
-          just build-installer
-          just export-installer
+          just build-installer-bootc
+          just export-installer-bootc
 
       - name: Build and export k0s systemd-sysext
         run: |
@@ -104,4 +104,3 @@ jobs:
             git commit -m "chore: resolve BuildStream junction refs to git-describe format" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
             git push origin "HEAD:${HEAD_REF}"
           fi
-

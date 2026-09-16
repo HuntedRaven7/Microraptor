@@ -1,10 +1,10 @@
 ---
 name: index
-description: Lazy-load manifest for microraptor skills. Load this file after AGENTS.md, then read only the skill that matches your current task.
+description: Lazy-load manifest for microraptor skills. Load this file after AGENTS.md, then read only the skill file that matches your current task.
 metadata:
   type: index
   status: stable
-  last_updated: 2026-07-20
+  last_updated: 2026-09-15
 ---
 # docs/skills — Index
 
@@ -18,19 +18,19 @@ This is the lazy-load routing table for agent skills. Keep this file in memory w
 | [`architecture-roadmap.md`](architecture-roadmap.md) | Future architecture direction, long-lead design | Roadmap for systemd-native architecture work. |
 | [`bump-fsdk-version.md`](bump-fsdk-version.md) | Pinning or retagging the FSDK junction | Update the pinned FSDK release and derived tags. |
 | [`ci-tooling.md`](ci-tooling.md) | GitHub Actions, workflow SHA pinning, CI conventions | CI conventions and release pipeline rules. |
-| [`ddi-installer.md`](ddi-installer.md) | Installer boot flow, `systemd-sysinstall`, `systemd-repart` | High-level DDI install architecture and local smoke test. |
-| [`ddi-installer-build.md`](ddi-installer-build.md) | Building the installer or DDI on the cluster | Cluster build pipeline and local installer/DDI build. |
+| [`ddi-installer.md`](ddi-installer.md) | Installer boot flow, `bootc install`, `systemd-repart` | High-level bootc install architecture and local smoke test. |
+| [`ddi-installer-build.md`](ddi-installer-build.md) | Building the installer or bootc OCI on the cluster | Cluster build pipeline and local installer/OCI build. |
 | [`factory-integration.md`](factory-integration.md) | Lab integration, boot-test workflow, factory role | How microraptor is consumed by the CI lab. |
 | [`gap-analysis-distros.md`](gap-analysis-distros.md) | Comparing microraptor to other server OSes | Source-verified comparison to Ubuntu, Talos, Flatcar, FCOS. |
 | [`skill-improvement.md`](skill-improvement.md) | Adding, splitting, or refactoring skills | Meta-skill that owns the documentation loop. |
 | [`system-containers.md`](system-containers.md) | Running `systemd-nspawn` toolboxes | System container operation with `machinectl`. |
 | [`systemd-sysext-extensions.md`](systemd-sysext-extensions.md) | Optional layers via `systemd-sysext` / `systemd-confext` | Extension identity, loading, and Flatcar compatibility. |
-| [`systemd-sysupdate-verification.md`](systemd-sysupdate-verification.md) | Image-based A/B updates and signed manifests | Release signing, `systemd-sysupdate`, and trust model. |
+| [`bootc-upgrades.md`](bootc-upgrades.md) | Image-based updates and signed manifests | `bootc upgrade` / `bootc rollback`, GHCR trust model. |
 | [`tpm2-credential-sealing.md`](tpm2-credential-sealing.md) | TPM2-bound first-boot credentials | Credential sealing with `systemd-creds` and TPM2. |
 
 ## Standing facts
 
-- **Publish registry:** factory OCI registry (set by your operator).
+- **Publish registry:** GHCR (`ghcr.io/${{ github.repository_owner }}/microraptor`).
 - **Cluster build workflow:** `microraptor-build-pipeline` in the downstream factory CI repository.
 - **Cluster boot-test workflow:** `microraptor-boot-test` in the downstream factory CI repository.
 - **Version scheme:** FSDK-derived only; no separate application version axis.

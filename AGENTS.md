@@ -1,8 +1,8 @@
 # microraptor — Agent Entry Point
 
 microraptor is an FSDK-based, image-based Linux server OS. It produces:
-- an immutable XFS DDI OS payload (`oci/microraptor-ddi.bst`)
-- an offline, systemd-native installer raw disk (`oci/microraptor-installer.bst`)
+- a bootc OCI image (`oci/microraptor-bootc.bst`)
+- a shell-based installer raw disk (`oci/microraptor-installer-bootc.bst`)
 
 ## What agents should know first
 
@@ -14,10 +14,9 @@ microraptor is an FSDK-based, image-based Linux server OS. It produces:
 
 1. Compose from FSDK `components/*`. Never use `platform.bst`.
 2. Keep the CPU baseline broad: no `x86_64_v3`.
-3. Installer must stay `systemd-sysinstall`-native; no custom installer scripts or non-native installers.
-4. SSH is included for standard server administration; root login is permitted with key-based auth only (see [`files/os/ssh/sshd_config.d/microraptor.conf`](files/os/ssh/sshd_config.d/microraptor.conf)).
-5. Boot entries use GPT `PARTUUID`; never hardcode device paths.
-6. One canonical source per fact; do not duplicate content across docs.
+3. SSH is included for standard server administration; root login is permitted with key-based auth only (see [`files/os/ssh/sshd_config.d/microraptor.conf`](files/os/ssh/sshd_config.d/microraptor.conf)).
+4. Boot entries use GPT `PARTUUID`; never hardcode device paths.
+5. One canonical source per fact; do not duplicate content across docs.
 
 ## Build / test commands
 
@@ -26,22 +25,24 @@ All `just` targets run BuildStream inside the FSDK `bst2` container via `just bs
 | Command | Purpose |
 |---|---|
 | `just validate` | Merge-contract graph check — run this on every change. |
-| `just build-ddi` | Local OS DDI payload build. |
-| `just export-ddi` | Export DDI artifacts to `dist/ddi/`. |
-| `just build-installer` | Local full installer build. |
-| `just export-installer` | Export installer + UKI to `dist/`. |
+| `just build-bootc` | Local bootc OCI image build. |
+| `just export-bootc` | Export bootc OCI image to podman. |
+| `just build-installer-bootc` | Local bootc installer build. |
+| `just export-installer-bootc` | Export bootc installer to `dist/`. |
+| `just generate-bootable-image` | Generate bootable raw disk via `bootc install to-disk --via-loopback`. |
 | `just show-me-the-future` | Local QEMU installer smoke test. |
 
 ## Skill routing
 
 | Task | Skill |
 |---|---|
-| Build or debug the installer / DDI | [`docs/skills/ddi-installer.md`](docs/skills/ddi-installer.md), [`docs/skills/ddi-installer-build.md`](docs/skills/ddi-installer-build.md) |
+| Build or debug the bootc installer | [`docs/skills/ddi-installer.md`](docs/skills/ddi-installer.md) |
+| Build bootc OCI image | [`docs/skills/ddi-installer-build.md`](docs/skills/ddi-installer-build.md) |
 | Factory role, lab integration | [`docs/skills/factory-integration.md`](docs/skills/factory-integration.md) |
 | Work with `systemd-sysext` / `systemd-confext` | [`docs/skills/systemd-sysext-extensions.md`](docs/skills/systemd-sysext-extensions.md) |
 | Update the FSDK pin / versioning | [`docs/skills/bump-fsdk-version.md`](docs/skills/bump-fsdk-version.md) |
 | CI workflows, action SHA pinning | [`docs/skills/ci-tooling.md`](docs/skills/ci-tooling.md) |
-| Release signing / sysupdate trust | [`docs/skills/systemd-sysupdate-verification.md`](docs/skills/systemd-sysupdate-verification.md) |
+| Release signing / bootc trust | [`docs/skills/bootc-upgrades.md`](docs/skills/bootc-upgrades.md) |
 | Credential sealing with TPM2 | [`docs/skills/tpm2-credential-sealing.md`](docs/skills/tpm2-credential-sealing.md) |
 | System containers (`machinectl`) | [`docs/skills/system-containers.md`](docs/skills/system-containers.md) |
 | Cut bloat / avoid over-engineering | [`docs/skills/avoid-over-engineering.md`](docs/skills/avoid-over-engineering.md) |
@@ -56,9 +57,8 @@ All `just` targets run BuildStream inside the FSDK `bst2` container via `just bs
 
 ## Boundaries
 
-- Do not add Containerfiles or shell-based installers.
 - Do not hardcode block device paths in boot configuration.
-- Do not put Kubernetes or debug tooling in the base DDI if it can live in a sysext or system container.
+- Do not put Kubernetes or debug tooling in the base bootc image if it can live in a sysext or system container.
 - Do not duplicate a fact already in a skill.
 
 ## Verification

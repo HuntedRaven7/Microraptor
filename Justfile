@@ -51,8 +51,8 @@ tags:
 [group('dev')]
 validate:
     python3 .github/scripts/check-release-version.py
-    just bst show --deps all oci/microraptor-ddi.bst
-    just bst show --deps all oci/microraptor-installer.bst
+    just bst show --deps all oci/microraptor-bootc.bst
+    just bst show --deps all oci/microraptor-installer-bootc.bst
     just bst show --deps all oci/k0s-sysext.bst
 
 # Run the unit test suite (pytest + bats).
@@ -127,6 +127,79 @@ export-sysext: build-sysext
     cp dist/sysext-checkout/SHA256SUMS dist/sysext/
     rm -rf dist/sysext-checkout
     @echo "==> wrote k0s sysext:" && ls -lh dist/sysext/
+
+# -- bootc OCI image -------------------------------------------------------
+# Produces the microraptor bootc OCI image.
+
+[group('build')]
+build-bootc:
+    just bst build oci/microraptor-bootc.bst
+
+[group('build')]
+export-bootc: build-bootc
+    #!/usr/bin/env bash
+    set -euo pipefail
+    SUDO_CMD="{{sudo_cmd}}"
+    rm -rf .build-out
+    just bst artifact checkout oci/microraptor-bootc.bst --directory /src/.build-out
+    echo "==> Loading OCI image into podman..."
+    IMAGE_ID=$($SUDO_CMD podman pull -q oci:.build-out)
+    IMAGE_ID=${IMAGE_ID#sha256:}
+    if [[ ! "$IMAGE_ID" =~ ^[0-9a-f]{64}$ ]]; then
+        echo "ERROR: Podman returned an invalid loaded image ID: $IMAGE_ID" >&2
+        exit 1
+    fi
+    echo "==> Tagging bootc image..."
+    $SUDO_CMD podman tag "$IMAGE_ID" "microraptor:latest"
+    $SUDO_CMD podman images | grep -E "microraptor|REPOSITORY" || true
+    echo "==> Export complete. Image loaded as microraptor:latest"
+
+# -- bootc installer -------------------------------------------------------
+# Produces the microraptor bootc installer disk image.
+
+[group('installer')]
+build-installer-bootc:
+    just bst build oci/microraptor-installer-bootc.bst
+
+[group('installer')]
+export-installer-bootc: build-installer-bootc
+    rm -rf dist/installer-bootc-checkout
+    mkdir -p dist dist/installer-bootc-checkout
+    rm -f dist/microraptor-installer-*.raw.zst dist/microraptor-*.efi dist/microraptor-pxe-* dist/SHA256SUMS
+    just bst artifact checkout oci/microraptor-installer-bootc.bst --directory /src/dist/installer-bootc-checkout
+    mv dist/installer-bootc-checkout/* dist/
+    rm -rf dist/installer-bootc-checkout
+    @echo "==> wrote:" && ls -lh dist/
+
+# -- Generate bootable disk image for VM testing -------------------------
+# Uses bootc install to-disk --via-loopback to create a bootable raw disk.
+
+[group('test')]
+generate-bootable-image:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    REF="microraptor:latest"
+    if ! sudo podman image exists "$REF"; then
+        echo "ERROR: Image '$REF' not found in podman." >&2
+        echo "Run 'just export-bootc' first." >&2
+        exit 1
+    fi
+    if [ ! -e bootable.raw ] ; then
+        echo "==> Creating 16G sparse disk image..."
+        fallocate -l 16G bootable.raw
+    fi
+    echo "==> Installing $REF to disk image via bootc..."
+    sudo bootc install to-disk \
+        --via-loopback bootable.raw \
+        --filesystem xfs \
+        --wipe \
+        --bootloader systemd \
+        --karg systemd.firstboot=no \
+        --karg console=ttyS0,115200 \
+        --karg console=tty0
+    echo "==> Bootable disk image ready: bootable.raw"
+    sync
+    rm -f bootable.qcow2
 
 # Sign exported EFI artifacts for Secure Boot (requires sbsigntool).
 # SECUREBOOT_KEY and SECUREBOOT_CERT must point to the private key and certificate files.
@@ -214,8 +287,10 @@ show-me-the-future:
     WORKDIR="$(mktemp -d "${CACHE_DIR}/microraptor-show-future.XXXXXX")"
     trap 'rm -rf "$WORKDIR"' EXIT
 
-    just build-installer
-    just export-installer
+    just build-bootc
+    just export-bootc
+    just build-installer-bootc
+    just export-installer-bootc
     just build-sysext
     just export-sysext
 

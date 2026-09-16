@@ -35,6 +35,10 @@ def test_show_me_the_future_proves_k0s_dashboard_smoke() -> None:
     assert "export-sysext" in recipe
     assert "dist/sysext/k0s-*.raw.zst" in recipe
 
+    # Bootc build and export
+    assert "build-bootc" in recipe
+    assert "export-bootc" in recipe
+
     # QEMU background execution with user NIC loopback forward, serial file, no monitor/display
     assert "hostfwd=tcp:127.0.0.1:8080-:8080" in recipe
     assert "-serial file:" in recipe

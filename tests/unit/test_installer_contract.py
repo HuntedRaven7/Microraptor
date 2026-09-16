@@ -1,4 +1,4 @@
-"""Contracts for the published Installer and headless smoke boot."""
+"""Contracts for the published bootc Installer and headless smoke boot."""
 
 from __future__ import annotations
 
@@ -10,10 +10,10 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 INSTALLER_STACK = REPO_ROOT / "elements" / "installer" / "installer-stack.bst"
 INSTALLER_ELEMENT = (
-    REPO_ROOT / "elements" / "oci" / "microraptor-installer.bst"
+    REPO_ROOT / "elements" / "oci" / "microraptor-installer-bootc.bst"
 )
 JUSTFILE = REPO_ROOT / "Justfile"
-DDI_ELEMENT = REPO_ROOT / "elements" / "oci" / "microraptor-ddi.bst"
+BOOTC_ELEMENT = REPO_ROOT / "elements" / "oci" / "microraptor-bootc.bst"
 
 
 def _published_uki_cmdline(installer_element: str) -> str:
@@ -27,15 +27,15 @@ def _published_uki_cmdline(installer_element: str) -> str:
     return match.group(1)
 
 
-def _target_uki_cmdlines(installer_element: str) -> list[str]:
-    matches = re.findall(
+def _target_uki_cmdline(installer_element: str) -> str:
+    match = re.search(
         r'ukify build\s+.*?--cmdline="([^"]+)"\s+'
-        r"[ \t\\\r\n]+--output=/target-root/boot/EFI/Linux/microraptor-[ab]\.efi",
+        r"[ \t\\\r\n]+--output=/layer/boot/EFI/Linux/microraptor\.efi",
         installer_element,
         flags=re.DOTALL,
     )
-    assert len(matches) == 2, f"expected 2 target UKIs (A/B), found {len(matches)}"
-    return matches
+    assert match, "target UKI ukify command must be present"
+    return match.group(1)
 
 
 def test_installer_runtime_and_boot_contracts() -> None:
@@ -43,16 +43,12 @@ def test_installer_runtime_and_boot_contracts() -> None:
     installer_element = INSTALLER_ELEMENT.read_text(encoding="utf-8")
     justfile = JUSTFILE.read_text(encoding="utf-8")
     published_uki_cmdline = _published_uki_cmdline(installer_element)
-    target_uki_cmdlines = _target_uki_cmdlines(installer_element)
+    target_uki_cmdline = _target_uki_cmdline(installer_element)
 
     assert "console=tty0 rw" in published_uki_cmdline
     assert "unattended" not in published_uki_cmdline
-    assert all(
-        cmdline.startswith("ro root=PARTLABEL=Microraptor-root-")
-        and "rootwait rootfstype=xfs rd.debug console=ttyS0,115200 console=tty0 systemd.debug_shell=tty9"
-        in cmdline
-        for cmdline in target_uki_cmdlines
-    )
+    assert target_uki_cmdline.startswith("ro root=PARTLABEL=Microraptor-root")
+    assert "rootwait rootfstype=xfs rd.debug console=ttyS0,115200 console=tty0 systemd.debug_shell=tty9" in target_uki_cmdline
     assert (
         'systemd.unit=system-install.target '
         'console=tty0 console=ttyS0,115200 rw unattended'
@@ -92,18 +88,16 @@ def test_installer_stages_uncompressed_k0s_before_packing_cpio() -> None:
     )
 
 
-def test_ddi_generates_module_indexes_for_runtime_filesystem_drivers() -> None:
-    ddi_element = DDI_ELEMENT.read_text(encoding="utf-8")
+def test_bootc_image_generates_module_indexes_for_runtime_filesystem_drivers() -> None:
+    bootc_element = BOOTC_ELEMENT.read_text(encoding="utf-8")
 
-    assert "freedesktop-sdk.bst:components/kmod.bst" in ddi_element
-    assert 'depmod -b /layer "${KVER}"' in ddi_element
-    assert "cp -a /etc/pki/ca-trust/extracted/* /layer/etc/pki/ca-trust/extracted/" in ddi_element
-    assert "tls-ca-bundle.pem" in ddi_element
-    assert "ln -sf /dev/null /layer/etc/systemd/system/systemd-firstboot.service" in ddi_element
-    assert "ln -sf /usr/lib/systemd/system/auditd.service" in ddi_element
-    assert "audit/rules.d/50-microraptor.rules" in ddi_element
-    assert "printf '127.0.0.1   localhost" in ddi_element
-    assert "> /layer/etc/hosts" in ddi_element
+    assert "gnome-build-meta.bst:gnomeos-deps/bootc.bst" in bootc_element
+    assert "prepare-image.sh" in bootc_element
+    assert "systemd-sysusers --root /layer" in bootc_element
+    assert "ldconfig -r /layer -f /layer/etc/ld.so.conf" in bootc_element
+    assert "build-oci" in bootc_element
+    assert "containers.bootc" in bootc_element
+    assert "org.opencontainers.image.ref.name" in bootc_element
 
 
 def test_target_initramfs_preloads_sysext_filesystem_drivers() -> None:
@@ -144,11 +138,11 @@ def test_installer_loads_storage_drivers_and_settles_udev() -> None:
     assert "Wants=systemd-udev-settle.service" in installer_element
 
 
-def test_installer_and_ddi_strip_vmlinux_and_static_archives() -> None:
+def test_installer_and_bootc_strip_vmlinux_and_static_archives() -> None:
     installer_element = INSTALLER_ELEMENT.read_text(encoding="utf-8")
-    ddi_element = DDI_ELEMENT.read_text(encoding="utf-8")
+    bootc_element = BOOTC_ELEMENT.read_text(encoding="utf-8")
 
     assert 'rm -f "/layer/usr/lib/modules/${KVER}/vmlinux"' in installer_element
     assert "find /layer -type f -name '*.a' -delete" in installer_element
-    assert 'rm -f "/layer/usr/lib/modules/${KVER}/vmlinux"' in ddi_element
-    assert "find /layer -type f -name '*.a' -delete" in ddi_element
+    # bootc element uses prepare-image.sh which runs depmod
+    assert "depmod" in bootc_element

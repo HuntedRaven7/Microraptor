@@ -1,5 +1,5 @@
 kind: stack
-description: Stack containing all elements required to build a pure DDI microraptor rootfs.
+description: Stack containing all elements required to build a bootc-based microraptor rootfs.
 
 depends:
   # Base runtime & core libraries
@@ -32,27 +32,18 @@ depends:
   - freedesktop-sdk.bst:components/linux-firmware.bst
   - freedesktop-sdk.bst:components/wireless-regdb-bin.bst
 
-  # Filesystem resizing support for growing root/var on first boot
+  # Filesystem resizing support for growing root on first boot
   - freedesktop-sdk.bst:components/xfsprogs.bst
 
   # Systemd-native tmpfiles for core operator home and authorized_keys directory
   - microraptor/os-tmpfiles.bst
 
-  # Passwordless sudo for wheel group (replaces polkit run0 escalation)
+  # Passwordless sudo for wheel group
   - microraptor/os-sudo.bst
   - freedesktop-sdk.bst:components/sudo.bst
 
   # Sysext Compatibility Identity
   - microraptor/os-release-flatcar.bst
-
-  # A/B System Update Configurations
-  - microraptor/os-sysupdate.bst
-
-  # Public keyring for verifying SHA256SUMS manifests from GitHub Releases
-  - microraptor/os-sysupdate-keys.bst
-
-  # gpg binary required by systemd-sysupdate to verify SHA256SUMS.gpg
-  - freedesktop-sdk.bst:components/gnupg.bst
 
   # First-Boot User Provisioning
   - microraptor/os-creds-prov.bst
@@ -60,13 +51,9 @@ depends:
   # First-Boot Network Configuration (nmtui)
   - microraptor/os-first-boot.bst
 
-  # Reboot Coordination for Kured
-  - microraptor/os-kured-hook.bst
-
   # Network Manager configuration and enablement
   - freedesktop-sdk.bst:components/networkmanager.bst
-  # Wi-Fi association backend for NetworkManager (D-Bus activated,
-  # no explicit enablement symlink needed)
+  # Wi-Fi association backend for NetworkManager (D-Bus activated)
   - freedesktop-sdk.bst:components/wpa-supplicant.bst
   - microraptor/os-network-manager.bst
 
@@ -75,3 +62,6 @@ depends:
 
   # Console issue banner
   - microraptor/os-issue.bst
+
+  # bootc and its dependencies
+  - microraptor/bootc.bst

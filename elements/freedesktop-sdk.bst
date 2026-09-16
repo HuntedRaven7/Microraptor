@@ -3,13 +3,18 @@ kind: junction
 sources:
 - kind: git_repo
   url: gitlab:freedesktop-sdk/freedesktop-sdk.git
-  track: freedesktop-sdk-26.08*
+  track: freedesktop-sdk-25.08*
 # renovate: datasource=git-refs depName=https://gitlab.com/freedesktop-sdk/freedesktop-sdk.git
-  ref: freedesktop-sdk-26.08.0-0-gdb97cce32cecadc7a3e98f06d557ebfa6ba9ad46
+  ref: freedesktop-sdk-25.08.16-0-gc4f8b7234c787e8282fb9d4f208b08f9f677eba9
 
-# FSDK 26.08 dropped components/systemd-base.bst, and gnome-build-meta
-# (gnome-50 / master) is still pinned to FSDK 25.08 and still depends on it,
-# so overriding FSDK's systemd onto gnome-build-meta's fails to load.
-# Use FSDK 26.08's own systemd until gnome-build-meta tracks 26.08.
-# NOTE: re-evaluate for brew-deps.bst (nspawn machine image), which wanted
-# gnome-build-meta's nspawn/container patches.
+config:
+  options:
+    target_arch: '%{arch}'
+
+  overrides:
+    components/systemd-base.bst: gnome-build-meta.bst:core-deps/systemd-base.bst
+    components/systemd.bst: gnome-build-meta.bst:core-deps/systemd.bst
+    components/systemd-ukify.bst: gnome-build-meta.bst:core-deps/systemd-ukify.bst
+    components/systemd-libs.bst: gnome-build-meta.bst:core-deps/systemd-libs.bst
+
+    components/geoclue-base.bst: gnome-build-meta.bst:gnomeos-deps/geoclue-base.bst

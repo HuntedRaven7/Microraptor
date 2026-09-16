@@ -4,7 +4,7 @@ description: Extract systemd versioned shared libraries from systemd-base for DD
 build-depends:
   - base/base-stack.bst
   - freedesktop-sdk.bst:components/findutils.bst
-  - freedesktop-sdk.bst:components/_private/systemd-base.bst
+  - freedesktop-sdk.bst:components/systemd-base.bst
 
 config:
   commands:

@@ -1,17 +1,17 @@
 ---
 name: ddi-installer-build
-description: Building the installer or DDI on the cluster.
+description: Building the bootc installer or OCI image on the cluster.
 metadata:
   type: reference
   status: stable
-  last_updated: 2026-07-20
+  last_updated: 2026-09-15
 ---
-# DDI Installer Build
+# DDI Installer Build (bootc)
 
 ## When to Use
 
-- Building the installer or DDI on the cluster.
-- Cluster build pipeline and local installer/DDI build.
+- Building the bootc installer or OCI image on the cluster.
+- Cluster build pipeline and local installer/OCI build.
 
 ## When NOT to Use
 
@@ -22,10 +22,10 @@ metadata:
 | Command | Purpose |
 |---|---|
 | `just validate` | Merge-contract graph check — run this on every change. |
-| `just build-ddi` | Local OS DDI payload build. |
-| `just export-ddi` | Export DDI artifacts to `dist/ddi/`. |
-| `just build-installer` | Local full installer build. |
-| `just export-installer` | Export installer + UKI to `dist/`. |
+| `just build-bootc` | Local bootc OCI image build. |
+| `just export-bootc` | Export bootc OCI image to podman. |
+| `just build-installer-bootc` | Local full installer build. |
+| `just export-installer-bootc` | Export installer + UKI to `dist/`. |
 | `just show-me-the-future` | Local QEMU installer smoke test. |
 
 ## Verification

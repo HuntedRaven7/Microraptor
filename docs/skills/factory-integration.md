@@ -4,7 +4,7 @@ description: Understand microraptor's role as the core OS for an image-based CI/
 metadata:
   type: reference
   status: stable
-  last_updated: 2026-07-20
+  last_updated: 2026-09-15
 ---
 # Factory Integration
 
@@ -22,11 +22,11 @@ The workloads the factory tests and ships live in other repositories or image pi
 
 | Factory need | Server decision |
 |---|---|
-| Fully automated, unattended installs | Offline DDI installer (`systemd-sysinstall`) |
-| Atomic, rollback-capable updates | Image-based A/B updates via `systemd-sysupdate` |
-| Minimal attack surface / no shell in OS | Distroless DDI; optional tools as sysexts |
-| Kubernetes control plane on every node | k3s delivered as `systemd-sysext` |
-| Signed, verifiable release artifacts | GPG-signed `SHA256SUMS` + `import-pubring.gpg` |
+| Fully automated, unattended installs | Offline bootc installer (`bootc install to-disk`) |
+| Atomic, rollback-capable updates | Image-based in-place upgrades via `bootc upgrade` from GHCR |
+| Minimal attack surface / no shell in OS | Distroless bootc image; optional tools as sysexts |
+| Kubernetes control plane on every node | k0s delivered as `systemd-sysext` |
+| Signed, verifiable release artifacts | GHCR image digests + optional cosign |
 
 ## SSH and Remote Diagnostics
 
@@ -50,7 +50,7 @@ The base image includes full `linux-firmware` and `wireless-regdb` for common ad
 ## When to Use
 
 - Explaining why a server feature exists (offline installer, sysext-first design, image updates).
-- Deciding whether a new component belongs in the base DDI or in a standalone `systemd-sysext`.
+- Deciding whether a new component belongs in the base bootc image or in a standalone `systemd-sysext`.
 - Integrating server builds with the downstream CI or image-factory pipeline.
 - Onboarding a contributor who asks "what is microraptor for?"
 
@@ -58,27 +58,3 @@ The base image includes full `linux-firmware` and `wireless-regdb` for common ad
 
 - For desktop variant questions.
 - For container image authoring.
-- For lab operational troubleshooting.
-
-## Common Rationalizations
-
-| Rationalization | Reality |
-|---|---|
-| "k3s should be in the base image." | Keep the OS DDI minimal. k3s is optional and delivered OTA as a sysext. |
-| "We can pull the DDI at install time." | Unattended installs must survive network loss; the DDI is embedded in the installer media. |
-| "Let's add a shell for debugging." | Shells belong in sysexts or system containers, not in the distroless DDI. SSH is included for standard server administration with key-based auth. |
-| "Package updates are small patches." | Image-based updates are whole-OS replacements; the rollback unit is the OS image, not a package delta. |
-
-## Red Flags
-
-- Adding a workload dependency to `elements/microraptor/os-stack.bst` that could ship as a `systemd-sysext`.
-- Treating microraptor as a generic Fedora/RHEL replacement rather than the factory core OS.
-- Putting Kubernetes tooling in the base DDI instead of the k3s sysext.
-- Designing install/update paths that require interactive human steps in the factory.
-
-## Verification
-
-- [ ] Any new base-DDI dependency can be justified by the factory core-OS role.
-- [ ] Optional capabilities are modeled as sysexts or system containers.
-- [ ] The k3s sysext still builds and updates independently of the DDI.
-- [ ] `systemd-sysupdate` transfer files are present for every OTA-delivered artifact (DDI, UKI, k3s sysext).
