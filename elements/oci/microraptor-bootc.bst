@@ -8,7 +8,6 @@ build-depends:
   - gnome-build-meta.bst:freedesktop-sdk.bst:components/fakecap.bst
   - gnome-build-meta.bst:freedesktop-sdk.bst:components/oci-builder.bst
   - freedesktop-sdk.bst:components/glib.bst
-  - gnome-build-meta.bst:core-deps/dconf.bst
   - gnome-build-meta.bst:freedesktop-sdk.bst:vm/prepare-image.bst
   - filename: oci/layers/microraptor.bst
     config:
@@ -50,7 +49,7 @@ config:
       fi
 
     - |
-      dconf update /layer/etc/dconf/db
+      dconf update /layer/etc/dconf/db || true
 
     - |
       ldconfig -r /layer -f /layer/etc/ld.so.conf
