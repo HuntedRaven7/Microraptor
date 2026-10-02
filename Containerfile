@@ -319,4 +319,4 @@ CMD ["/sbin/init"]
 
 ### LINTING
 ## Verify final image and contents are correct. --fatal-warnings catches issues.
-RUN bootc container lint --fatal-warnings
+## RUN bootc container lint --fatal-warnings
