@@ -161,11 +161,6 @@ dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
 	bind-utils \
 	iptables-nft \
 	linux-firmware \
-	wlwifi-dvm-firmware \
-	iwlwifi-mvm-firmware \
-	iwlwifi-mld-firmware \
-	iwlegacy-firmware \
-	dbus-devel \
 	iw
 
 echo "::endgroup::"
