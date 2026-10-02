@@ -25,6 +25,32 @@ set -euo pipefail
 # shellcheck source=/dev/null
 source /ctx/build/copr-helpers.sh
 
+if [ -f /usr/lib/systemd/logind.conf ]; then
+    sed -i 's/^#HandleLidSwitch=.*/HandleLidSwitch=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
+    sed -i 's/^#HandleLidSwitchDocked=.*/HandleLidSwitchDocked=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
+    sed -i 's/^#HandleLidSwitchExternalPower=.*/HandleLidSwitchExternalPower=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
+    sed -i 's/^#SleepOperation=.*/SleepOperation=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
+fi
+
+unit_exists() {
+    systemctl cat "$1" >/dev/null 2>&1
+}
+
+user_unit_exists() {
+    for dir in /usr/lib/systemd/user /usr/local/lib/systemd/user /etc/systemd/user; do
+        [ -e "$dir/$1" ] && return 0
+    done
+    return 1
+}
+
+enable_unit() {
+    unit_exists "$1" && systemctl enable "$1" || true
+}
+
+disable_unit() {
+    unit_exists "$1" && systemctl disable "$1" || true
+}
+
 # Enable nullglob for all glob operations to prevent failures on empty matches
 shopt -s nullglob
 
@@ -106,6 +132,22 @@ dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
 	wireplumber \
 	xdg-desktop-portal \
 	xdg-desktop-portal-gtk
+        NetworkManager-config-connectivity-fedora \
+	NetworkManager-wifi \
+	wpa_supplicant \
+	wireless-regdb \
+	ModemManager \
+	NetworkManager-wwan \
+	NetworkManager-bluetooth \
+	bind-utils \
+	iptables-nft \
+	linux-firmware \
+	wlwifi-dvm-firmware \
+	iwlwifi-mvm-firmware \
+	iwlwifi-mld-firmware \
+	iwlegacy-firmware \
+	dbus-devel \
+	iw
 
 echo "::endgroup::"
 
@@ -139,6 +181,19 @@ echo "::group:: Enable desktop services"
 # configuration, which is expected: this image ships the compositor, not a
 # desktop.
 systemctl enable sddm.service
+enable_unit bluetooth.service
+enable_unit systemd-resolved.service
+enable_unit ModemManager.service
+
+for unit in pipewire.socket pipewire-pulse.socket wireplumber.service \
+            xdg-user-dirs.service \
+            obex.service mpris-proxy.service; do
+    if user_unit_exists "${unit}"; then
+        systemctl --global enable "${unit}"
+    else
+        echo "user unit ${unit} is not installed; skipping" >&2
+    fi
+done
 
 # tailscaled is what makes `tailscale up` work. socket-activated, so the unit
 # is enough; the daemon starts on first use.
