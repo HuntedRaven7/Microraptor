@@ -105,11 +105,49 @@ run_cleanup() {
 	run_cleanup
 	[ "$status" -eq 0 ]
 
+	# Three calls, in order: disable and mask the Flatpak remote, then the base
+	# updater. The Flatpak pair is behind a list-unit-files guard, so it only
+	# appears when the stub reports the unit.
 	mapfile -t calls <"${SYSTEMCTL_LOG}"
-	[ "${#calls[@]}" -eq 3 ]
-	[ "${calls[0]}" = "disable flatpak-add-fedora-repos.service" ]
-	[ "${calls[1]}" = "mask flatpak-add-fedora-repos.service" ]
-	[ "${calls[2]}" = "disable rpm-ostreed-automatic.timer" ]
+	[ "${#calls[@]}" -eq 4 ]
+	[ "${calls[0]}" = "list-unit-files flatpak-add-fedora-repos.service" ]
+	[ "${calls[1]}" = "disable flatpak-add-fedora-repos.service" ]
+	[ "${calls[2]}" = "mask flatpak-add-fedora-repos.service" ]
+	[ "${calls[3]}" = "disable rpm-ostreed-automatic.timer" ]
+}
+
+@test "90-cleanup: tolerates a base that ships no flatpak-add-fedora-repos unit" {
+	# A base with no flatpak package has no such unit, and `systemctl disable`
+	# exits non-zero on a missing unit, which under `set -e` would fail the
+	# build. The guard must let the phase finish and still stop the updater.
+	systemctl() {
+		case "$*" in
+			*list-unit-files*) return 1 ;;
+		esac
+		printf '%s\n' "$*" >> "${SYSTEMCTL_LOG}"
+		return 0
+	}
+	export -f systemctl 2>/dev/null || true
+	cat >"${STUB_BIN}/systemctl" <<'EOF'
+#!/usr/bin/bash
+case "$*" in
+	*list-unit-files*) exit 1 ;;
+esac
+printf '%s\n' "$*" >> "${SYSTEMCTL_LOG}"
+exit 0
+EOF
+	chmod +x "${STUB_BIN}/systemctl"
+
+	run_cleanup
+	[ "$status" -eq 0 ]
+
+	# No disable or mask was attempted against a unit that does not exist.
+	run grep -c 'flatpak-add-fedora-repos' "${SYSTEMCTL_LOG}"
+	[ "$output" -eq 0 ]
+	# The base updater is still stopped.
+	grep -qx 'disable rpm-ostreed-automatic.timer' "${SYSTEMCTL_LOG}"
+	# And the unit file, if any, is untouched rather than half-handled.
+	[ -f "${SANDBOX}/usr/lib/systemd/system/flatpak-add-fedora-repos.service" ]
 }
 
 @test "90-cleanup: removes the flatpak-add-fedora-repos unit file" {
@@ -120,14 +158,48 @@ run_cleanup() {
 	[ ! -e "${SANDBOX}/usr/lib/systemd/system/flatpak-add-fedora-repos.service" ]
 }
 
-@test "90-cleanup: disables every third-party repository and leaves Fedora's alone" {
+@test "90-cleanup: disables every third-party repository, and the build-time Fedora one" {
 	run_cleanup
 	[ "$status" -eq 0 ]
 
 	grep -q '^enabled=0' "${REPOS_DIR}/_copr:copr.fedorainfracloud.org:ublue-os:packages.repo"
 	grep -q '^enabled=0' "${REPOS_DIR}/rpmfusion-free.repo"
 	grep -q '^enabled=0' "${REPOS_DIR}/fedora-multimedia.repo"
-	grep -q '^enabled=1' "${REPOS_DIR}/fedora.repo"
+	# Fedora is enabled at build time -- a base with no repository of its own
+	# needs it to install anything -- and closed here, so an installed system
+	# resolves only the base's own rebuilt RPMs.
+	grep -q '^enabled=0' "${REPOS_DIR}/fedora.repo"
+}
+
+@test "90-cleanup: closes every stanza in the build-time Fedora repository" {
+	# packages/fedora.repo carries both fedora-44 and fedora-44-updates. A
+	# build that closed only the first would leave the second live.
+	printf '[fedora-44]\nenabled=1\nzchunk=false\n' \
+		>"${REPOS_DIR}/fedora.repo"
+	printf '\n[fedora-44-updates]\nenabled=1\n' >>"${REPOS_DIR}/fedora.repo"
+
+	run_cleanup
+	[ "$status" -eq 0 ]
+
+	[ "$(grep -c '^enabled=0' "${REPOS_DIR}/fedora.repo")" -eq 2 ]
+	run grep -q '^enabled=1' "${REPOS_DIR}/fedora.repo"
+	[ "$status" -ne 0 ]
+}
+
+@test "90-cleanup: fails when the build-time Fedora repository is still enabled" {
+	# Same contract as the third-party repositories, extended to Fedora: a
+	# repository that must not ship cannot be quietly left live.
+	printf '[fedora-44]\nenabled=1\n' >"${REPOS_DIR}/fedora.repo"
+
+	cat >"${STUB_BIN}/sed" <<'EOF'
+#!/usr/bin/bash
+# Simulate a repository file the script cannot rewrite.
+exit 1
+EOF
+	chmod +x "${STUB_BIN}/sed"
+
+	run_cleanup
+	[ "$status" -ne 0 ]
 }
 
 @test "90-cleanup: leaves an already-disabled third-party repository disabled" {

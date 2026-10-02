@@ -35,8 +35,18 @@ for repo_name in fedora-multimedia tailscale fedora-cisco-openh264 fedora-coreos
 	disable_repo_file "${REPOS_DIR}/${repo_name}.repo"
 done
 
+# Fedora is a build-time source only. A base with no repository of its own --
+# Hummingbird -- needs it to install anything at all, and 90-cleanup.sh is the
+# last phase that runs dnf5, so this is the point where it can be closed.
+#
+# Leaving it live would let an installed system resolve a Fedora RPM that is not
+# the Hummingbird-rebuilt one, mixing two buildroots that were never tested
+# together. The Fedora stanzas are named fedora-44 and fedora-44-updates inside
+# fedora.repo, so the file is matched by name rather than by stanza id.
+disable_repo_file "${REPOS_DIR}/fedora.repo"
+
 # Fail loudly rather than shipping a third-party repository that is still live.
-for repo_file in "${REPOS_DIR}"/_copr:*.repo "${REPOS_DIR}"/_copr_*.repo "${REPOS_DIR}"/rpmfusion-*.repo; do
+for repo_file in "${REPOS_DIR}"/_copr:*.repo "${REPOS_DIR}"/_copr_*.repo "${REPOS_DIR}"/rpmfusion-*.repo "${REPOS_DIR}"/fedora.repo; do
 	[[ -f "${repo_file}" ]] || continue
 	if grep -qE '^enabled=1' "${repo_file}"; then
 		echo "::error::third-party repository still enabled: $(basename "${repo_file}")" >&2
@@ -48,10 +58,18 @@ echo "::endgroup::"
 
 echo "::group:: Finalise Flatpak sources"
 
-# The Fedora Flatpak remote must never be added on first boot.
-systemctl disable flatpak-add-fedora-repos.service
-systemctl mask flatpak-add-fedora-repos.service
-rm -f "${CLEAN_ROOT}/usr/lib/systemd/system/flatpak-add-fedora-repos.service"
+# The Fedora Flatpak remote must never be added on first boot. Guarded, because
+# the unit is owned by whichever flatpak package the base ships: it is present
+# on a Fedora desktop base, and a base that carries no flatpak at all has no
+# unit to disable. `systemctl disable` on a missing unit exits non-zero, which
+# would fail the build under `set -e`.
+if systemctl list-unit-files flatpak-add-fedora-repos.service >/dev/null 2>&1; then
+	systemctl disable flatpak-add-fedora-repos.service
+	systemctl mask flatpak-add-fedora-repos.service
+	rm -f "${CLEAN_ROOT}/usr/lib/systemd/system/flatpak-add-fedora-repos.service"
+else
+	echo "flatpak-add-fedora-repos.service not present on this base; nothing to disable"
+fi
 
 echo "::endgroup::"
 

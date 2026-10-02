@@ -22,7 +22,15 @@ copr_install_isolated() {
 
 	echo "Installing ${packages[*]} from COPR $copr_name (isolated)"
 
-	dnf5 -y copr enable "$copr_name"
+	# `dnf5 copr enable` autodetects the chroot from the base's os-release.
+	# On Hummingbird that yields hummingbird-20251124-x86_64, which no COPR
+	# carries, and the enable fails without naming a chroot. Copr's own error
+	# lists the valid ones; a base that autodetects correctly needs this unset.
+	if [[ -n "${COPR_CHROOT:-}" ]]; then
+		dnf5 -y copr enable "$copr_name" "$COPR_CHROOT"
+	else
+		dnf5 -y copr enable "$copr_name"
+	fi
 	dnf5 -y copr disable "$copr_name"
 	dnf5 -y install --enablerepo="$repo_id" "${packages[@]}"
 

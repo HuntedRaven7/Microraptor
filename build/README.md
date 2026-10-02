@@ -16,6 +16,30 @@ prefix auto-discovery. The numbers communicate intent.
 Helpers, not phases: `copr-helpers.sh` (sourced), `validate-brewfiles.sh`, and
 `validate-flatpaks.sh` (called by the Justfile and CI).
 
+## Package sources
+
+`packages/` holds the repository definitions and GPG keys the Containerfile
+installs before the first transaction. It exists because Hummingbird ships only
+its own repository, so a Fedora package is not installable until `fedora.repo` is
+in place. A Fedora desktop base enables `fedora` and `fedora-updates` itself and
+does not need any of it.
+
+Two things there are load-bearing rather than documentation:
+
+- **`zchunk=false`** in `fedora.repo`. Fedora stopped publishing the `.xml.zck`
+  variants dnf5 asks for by default, and without it every metadata fetch 404s.
+- **The digest and the `FEDORA_MAJOR_VERSION` ARG move together.** The ARG exists
+  because Hummingbird's `os-release` reports `VERSION_ID="20251124"`, a build
+  date, and `00-image-info.sh` cannot read a Fedora major from it.
+
+`hummingbird.repo` and `nvidia-container.repo` are reference copies, not
+installed. Hummingbird already ships a working definition of its own repository,
+with the signing key in the rpmdb; the copy here records why it is safe
+(`gpgcheck=1`, `priority=10`) without narrowing it to one architecture.
+
+`90-cleanup.sh` flips `fedora.repo` to `enabled=0`. Fedora is a build-time source
+only, so an installed system resolves just the base's own rebuilt RPMs.
+
 ## Examples
 
 Inactive until you activate them:

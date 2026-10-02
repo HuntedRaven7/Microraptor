@@ -15,6 +15,10 @@ set -euo pipefail
 #   fzf   - ujust --choose, without a first-use Homebrew download
 #   jq    - the ublue setup hooks and several recipes
 #   uupd  - background update policy, from the ublue-os/packages COPR
+#
+# dnf5-plugins, rsync and flatpak are installed by the Containerfile's package
+# sources phase rather than here, because the overlay and cleanup phases both
+# need them and they run before this one.
 ###############################################################################
 
 # Source helper functions

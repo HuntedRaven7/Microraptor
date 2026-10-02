@@ -1,4 +1,4 @@
-export IMAGE_NAME := env("IMAGE_NAME", "finpilot")
+export IMAGE_NAME := env("IMAGE_NAME", "microraptor")
 export DEFAULT_TAG := env("DEFAULT_TAG", "stable")
 export PODMAN := env("PODMAN", "podman")
 export REPO_ORG := env("GITHUB_REPOSITORY_OWNER", "projectbluefin")
@@ -137,7 +137,7 @@ sudoif command *args:
 # registry already has that version, and a clean worktree also stamps the short
 # HEAD SHA.
 #
-# Example: just build finpilot stable-testing
+# Example: just build microraptor stable-testing
 
 # Build the image using the specified parameters
 [group('Image')]

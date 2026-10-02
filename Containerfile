@@ -1,7 +1,7 @@
 ###############################################################################
 # PROJECT NAME CONFIGURATION
 ###############################################################################
-# Name: finpilot
+# Name: microraptor
 #
 # The authoritative name at publish time is the repository name: build-image.yml
 # derives IMAGE_NAME from ${{ github.event.repository.name }} and pushes the
@@ -25,10 +25,14 @@
 #    - @ublue-os/brew - Homebrew integration
 #
 # 2. Base Image Options (edit the FROM line below):
+#    - `quay.io/hummingbird-community/bootc-os` (Hummingbird, minimal, no desktop)
 #    - `quay.io/fedora-ostree-desktops/silverblue` (Fedora, GNOME desktop)
 #    - `quay.io/fedora-ostree-desktops/base-main` (Fedora, no desktop)
 #    - `quay.io/centos-bootc/centos-bootc:stream10` (CentOS-based)
-#    - `quay.io/hummingbird-community/bootc-os` (Hummingbird-based, minimal)
+#
+# A base with no Fedora repository of its own needs packages/fedora.repo, which
+# this image's Containerfile installs. Hummingbird is the case that motivated
+# it; the Fedora desktop bases already enable fedora and fedora-updates.
 #
 # See: https://docs.projectbluefin.io/contributing/ for architecture diagram
 ###############################################################################
@@ -44,22 +48,38 @@ FROM scratch AS ctx
 COPY build /build
 COPY custom /custom
 
+COPY packages /packages
+
 # Copy from OCI containers to distinct subdirectories to avoid conflicts
 COPY --from=common /system_files /oci/common
 COPY --from=brew /system_files /oci/brew
 
-# Base Image - GNOME included (Fedora official OSTree desktop)
-# Renovate will keep the digest pin up to date.
-FROM quay.io/fedora-ostree-desktops/silverblue:44@sha256:699ab736b43bdd34adb302b5274d00987802df6bd99bf53ec40c44effbe34363
+# Base Image - Hummingbird (Fedora 44 packages, minimal, no desktop)
+# Renovate keeps the digest pin below up to date. Do not drop the digest or add
+# trailing whitespace: `just build` parses this line for the base tag and the
+# base image name, and a malformed line makes it exit rather than guess.
+FROM quay.io/hummingbird-community/bootc-os:latest@sha256:6bd9f5077c5598c04d5d4e2846ba544a46b3a51cfa0819befecffeec08edffb6
 
 # Image identity - these define how bootc, fastfetch, and the ublue ecosystem
 # recognize your image. Change these to match your project name.
-ARG IMAGE_NAME="finpilot"
+ARG IMAGE_NAME="microraptor"
 ARG IMAGE_VENDOR="projectbluefin"
 ARG UBLUE_IMAGE_TAG="stable"
 # Supplied by `just build` from the base image's FROM line.
 ARG BASE_IMAGE_NAME=""
 ARG VERSION=""
+# Hummingbird's os-release reports VERSION_ID="20251124", a build date rather
+# than a Fedora release, so 00-image-info.sh cannot derive the Fedora major
+# from it. This is the release packages/fedora.repo points at, and it moves
+# together with that file. A Fedora-based base needs no ARG here: its
+# os-release already answers the question, and the script prefers the explicit
+# value only when one is set.
+ARG FEDORA_MAJOR_VERSION="44"
+# Copr chroot for this base. `dnf5 copr enable` autodetects one from os-release
+# and Hummingbird yields hummingbird-20251124-x86_64, which no COPR carries.
+# Read by build/copr-helpers.sh. Leave unset on a Fedora base, where
+# autodetection is correct.
+ENV COPR_CHROOT="fedora-44-x86_64"
 
 ### MODIFICATIONS
 ## Make modifications desired in your image and install packages by modifying the build scripts.
@@ -77,9 +97,43 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=tmpfs,dst=/tmp \
     /ctx/build/00-image-info.sh
 
-# Set dnf options before build scripts (persists across subsequent RUN layers)
-RUN cp /etc/dnf/dnf.conf /etc/dnf/dnf.conf.tmp \
-    && mv /etc/dnf/dnf.conf.tmp /etc/dnf/dnf.conf \
+### PACKAGE SOURCES
+## Hummingbird ships only its own repository, so dnf5 needs both the Fedora
+## definitions in packages/ and its own plugin packages before any later phase
+## can run a transaction:
+##
+##   - packages/*.repo go to /etc/yum.repos.d, keys to /etc/pki/rpm-gpg
+##   - dnf5-plugins provides the `config-manager`, `versionlock` and `copr`
+##     subcommands that 20-packages-and-services.sh and 90-cleanup.sh call
+##   - rsync, which 10-overlay.sh uses for every overlay
+##   - flatpak, which 10-overlay.sh's units and the Flathub remote need
+##
+## `config-manager` is itself a plugin subcommand, so dnf5-plugins has to be
+## installed before the dnf settings can be set at all.
+##
+## The install retry is not papering over a misconfiguration. The Fedora mirrors
+## return 404 for a fraction of package requests through no fault of this setup --
+## measured at roughly one in three builds here, failing on a different package
+## each time -- and without the retry a correct build fails intermittently. The
+## retry wraps the transaction rather than a preceding `makecache`, because it is
+## the download of the .rpm itself that 404s; a warmed metadata cache does not
+## help. `--setopt=retries=N` does not cover it either: that is libdnf's
+## per-request retry, and a mirror that answers 404 has nothing to retry.
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=cache,dst=/var/cache/libdnf5 \
+    --mount=type=tmpfs,dst=/boot \
+    --mount=type=tmpfs,dst=/tmp \
+    install -d -m0755 /etc/yum.repos.d /etc/pki/rpm-gpg \
+    && install -m0644 /ctx/packages/fedora.repo /etc/yum.repos.d/ \
+    && install -m0644 /ctx/packages/RPM-GPG-KEY-fedora-44-primary /etc/pki/rpm-gpg/ \
+    && sh -c 'installed=0; for attempt in 1 2 3 4 5; do \
+         if dnf5 install -y dnf5-plugins rsync flatpak; then installed=1; break; fi; \
+         echo "dnf5 install failed (attempt ${attempt}/5); retrying" >&2; \
+         sleep $((attempt * 5)); \
+       done; \
+       if [ "${installed}" != 1 ]; then \
+         echo "::error::dnf5 install failed after 5 attempts" >&2; exit 1; \
+       fi' \
     && dnf5 config-manager setopt keepcache=1 install_weak_deps=0
 
 ### RUNTIME OVERLAYS

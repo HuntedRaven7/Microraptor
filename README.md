@@ -1,4 +1,4 @@
-# finpilot
+# microraptor
 
 A template for building your own bootc operating system image, assembled the
 same way Bluefin, Aurora, and Bluefin LTS are: from shared OCI layers rather
@@ -12,12 +12,16 @@ It is built to be driven by hand or by an agent.
 
 ## What Makes this Raptor Different?
 
-Here are the changes from [Base Image Name]. This image is based on
-[Bluefin/Bazzite/Aurora/etc] and includes these customizations:
+This image is based on
+[Hummingbird](https://gitlab.com/redhat/hummingbird/containers) and includes
+these customizations.
 
 ### Added Packages (Build-time)
 
-- List the packages you install at build time
+- `dnf5-plugins`, `rsync`, `flatpak` — Hummingbird ships none of these, and the
+  overlay and package phases need all three
+- `just`, `gum`, `fzf`, `jq` — the `ujust` entry point and its helpers
+- `uupd` — scheduled update policy, from the `ublue-os/packages` COPR
 
 ### Added Applications (Runtime)
 
@@ -26,15 +30,23 @@ Here are the changes from [Base Image Name]. This image is based on
 
 ### Removed or Disabled
 
-- List anything removed from the base image
+- The Fedora repositories are enabled for the build and disabled by
+  `90-cleanup.sh`. Hummingbird carries no Fedora repo of its own, so the build
+  cannot install anything without `packages/fedora.repo` — but an installed
+  system resolves only Hummingbird's rebuilt RPMs, so a user cannot install a
+  Fedora package that was never part of this image's tested buildroot.
 
 ### Configuration Changes
 
-- Systemd services enabled or disabled
-- Desktop environment changes
-- Other notable modifications
+- The ujust entry point, Homebrew, Flatpak preinstalls, and the setup hooks from
+  `projectbluefin/common`'s shared layer
+- `uupd.timer` and `uupd-resume.timer` enabled; `rpm-ostreed-automatic.timer`
+  disabled where the base has one
+- **No desktop.** Hummingbird is a minimal, headless base: no GNOME, no display
+  manager. The Flatpak and Homebrew machinery works, but there is no session to
+  log into yet.
 
-_Last updated: [date]_
+_Last updated: 2026-10-02_
 
 > This section is what tells your users how your image differs from its base.
 > Update it whenever you add or remove a package, app, or service.
@@ -49,7 +61,7 @@ _Last updated: [date]_
    - `Justfile` — the `IMAGE_NAME` default
    - `artifacthub-repo.yml` — `repositoryID`
 
-   Grep for `finpilot` afterwards to catch the prose and the examples.
+   Grep for `microraptor` afterwards to catch the prose and the examples.
 3. **Finish setup.** [The `onboarding` skill](.agents/skills/onboarding/SKILL.md)
    carries the rest — enabling Actions, auto-merge and workflow permissions, the
    Renovate token, the `stable` branch, branch protection on both branches, and
@@ -78,10 +90,16 @@ _Last updated: [date]_
 
 ## Customize
 
-Pick your base image on the `Containerfile`'s `FROM` line; the template defaults
-to Fedora Silverblue. That line is the only place the base is chosen: `just build`
-reads the image name and the tag from it, and the Fedora major comes from the
-base image itself during the build.
+Pick your base image on the `Containerfile`'s `FROM` line. That line is the only
+place the base is chosen: `just build` reads the base tag and the base image name
+from it, so it has to stay a single well-formed `FROM …:tag@sha256:…` with no
+trailing whitespace. `tests/contract/package-sources_test.bats` enforces that,
+because nothing in CI parses the line — CI takes its image name from the event
+payload, so a malformed `FROM` breaks local builds only.
+
+A base with no Fedora repository of its own also needs `packages/fedora.repo`,
+installed by the Containerfile before the first transaction. Hummingbird is that
+case; a Fedora desktop base is not.
 
 Then add to your image:
 

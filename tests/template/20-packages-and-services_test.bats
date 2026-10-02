@@ -94,6 +94,28 @@ teardown() {
 	[ "${calls[3]}" = "-y install --enablerepo=copr:copr.fedorainfracloud.org:ublue-os:packages uupd" ]
 }
 
+@test "20-packages-and-services: names an explicit COPR chroot when the base needs one" {
+	# `dnf5 copr enable` autodetects the chroot from the base's os-release. On a
+	# base that does not report a Fedora release -- Hummingbird reports a build
+	# date -- autodetection yields a chroot no COPR carries and the enable fails.
+	# COPR_CHROOT is how the Containerfile supplies the right one.
+	COPR_CHROOT="fedora-44-x86_64" run bash "${SCRIPT}"
+	[ "$status" -eq 0 ]
+
+	mapfile -t calls <"${DNF5_LOG}"
+	[ "${calls[1]}" = "-y copr enable ublue-os/packages fedora-44-x86_64" ]
+}
+
+@test "20-packages-and-services: the COPR chroot follows the base architecture" {
+	# A hardcoded x86_64 chroot would break an arm64 build, so the value is read
+	# from the environment rather than baked into the helper.
+	COPR_CHROOT="fedora-44-aarch64" run bash "${SCRIPT}"
+	[ "$status" -eq 0 ]
+
+	mapfile -t calls <"${DNF5_LOG}"
+	[ "${calls[1]}" = "-y copr enable ublue-os/packages fedora-44-aarch64" ]
+}
+
 @test "20-packages-and-services: enables the update timers" {
 	run bash "${SCRIPT}"
 	[ "$status" -eq 0 ]
