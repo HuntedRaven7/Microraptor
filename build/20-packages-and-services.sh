@@ -148,6 +148,8 @@ echo "::group:: Install the audio stack"
 #
 # pipewire-alsa is the ALSA compatibility layer, so ordinary desktop apps that
 # only speak ALSA still produce sound.
+dnf install -y @kde-desktop-environment
+dnf install -y plasma-login-manager kcm-plasmalogin
 dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
 	pipewire \
 	pipewire-alsa \
@@ -164,7 +166,7 @@ echo "::group:: Install SDDM and Tailscale"
 # Both are in Fedora 44 proper. Tailscale is not a third-party repository
 # dependency on this base, which is worth stating because the 30-tailscale
 # example in build/ adds one.
-dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y sddm tailscale
+dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y tailscale
 
 echo "::endgroup::"
 
@@ -184,11 +186,11 @@ echo "::group:: Enable desktop services"
 # that disables everything it does not name, so an explicit enable is the only
 # thing that survives it.
 #
-# sddm is the display manager, so it takes over from the base's getty-on-tty
 # arrangement. It has no session to offer until the user supplies a MangoWM
 # configuration, which is expected: this image ships the compositor, not a
 # desktop.
-systemctl enable sddm.service
+systemctl enable plasmalogin.service
+
 enable_unit bluetooth.service
 enable_unit systemd-resolved.service
 enable_unit ModemManager.service
