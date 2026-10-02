@@ -56,7 +56,7 @@ shopt -s nullglob
 
 echo "::group:: Install Default Packages"
 
-dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y just gum fzf jq
+dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y just fzf jq
 
 echo "::endgroup::"
 
