@@ -148,7 +148,6 @@ echo "::group:: Install the audio stack"
 #
 # pipewire-alsa is the ALSA compatibility layer, so ordinary desktop apps that
 # only speak ALSA still produce sound.
-dnf install -y plasma-login-manager kcm-plasmalogin
 dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
 	pipewire \
 	pipewire-alsa \
@@ -156,18 +155,99 @@ dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
 	wireplumber \
 	xdg-desktop-portal \
 	wireless-regdb \
+	sddm \
 	wlr-randr
 
 echo "::endgroup::"
 
-echo "::group:: Install KDE"
+echo "::group:: Install the Utah package stack"
 
-# Both are in Fedora 44 proper. Tailscale is not a third-party repository
-# dependency on this base, which is worth stating because the 30-tailscale
-# example in build/ adds one.
-dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y --allowerasing --no-best --skip-broken @kde-desktop-environment 
+# Grouped by what each set is for rather than left as one flat run, because at
+# 68 packages the middle of an alphabetical list tells a reader nothing about why
+# anything is there.
+#
+# This is an array rather than a backslash-continued list because a comment inside
+# a continued command does not work: bash ends the command at the `#`, runs it
+# with whatever came before, and then tries to execute the next package name as a
+# command. `bash -n` accepts it, so only running it catches the difference. An
+# array literal takes comments between its elements and still expands to a single
+# argument list, which keeps the install one transaction.
+utah_packages=(
+	NetworkManager-config-connectivity-fedora
+	NetworkManager-wifi
+	NetworkManager-wwan
+	wpa_supplicant
+	iw
+	wireless-regdb
+	ModemManager
+	bind-utils
+	iptables-nft
+	NetworkManager-bluetooth
+	fprintd
+	fprintd-pam
+	linux-firmware
+	iwlwifi-dvm-firmware
+	iwlwifi-mld-firmware
+	iwlwifi-mvm-firmware
+	iwlegacy-firmware
+	intel-gmmlib
+	intel-mediasdk
+	intel-vpl-gpu-rt
+	libheif
+	libva
+	libva-intel-media-driver
+	mesa-dri-drivers
+	mesa-filesystem
+	mesa-libEGL
+	mesa-libGL
+	mesa-libgbm
+	mesa-vulkan-drivers
+	alsa-ucm
+	alsa-utils
+	pipewire-alsa
+	pipewire-utils
+	wireplumber
+	xdg-desktop-portal
+	langpacks-en
+	langpacks-fonts-en
+	abattis-cantarell-fonts
+	default-fonts-core-emoji
+	default-fonts-core-mono
+	default-fonts-core-sans
+	default-fonts-core-serif
+	google-noto-sans-math-fonts
+	google-noto-sans-mono-vf-fonts
+	google-noto-sans-symbols-2-fonts
+	google-noto-serif-vf-fonts
+	bash-completion
+	crypto-policies-scripts
+	dbus-tools
+	file
+	hostname
+	keyutils
+	less
+	libimobiledevice-utils
+	lm_sensors
+	man-db
+	poppler-utils
+	unzip
+	which
+	wlr-randr
+	xxd
+	zip
+	buildah
+	cups
+	cups-client
+	cups-ipptool
+	python3-pip
+	systemd-container
+)
+
+dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y "${utah_packages[@]}"
 
 echo "::endgroup::"
+
+
 
 echo "::group:: Install SDDM and Tailscale"
 
@@ -197,7 +277,7 @@ echo "::group:: Enable desktop services"
 # arrangement. It has no session to offer until the user supplies a MangoWM
 # configuration, which is expected: this image ships the compositor, not a
 # desktop.
-systemctl enable plasmalogin.service
+systemctl enable sddm.service
 
 enable_unit bluetooth.service
 enable_unit systemd-resolved.service

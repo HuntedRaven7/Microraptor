@@ -37,10 +37,15 @@
 # See: https://docs.projectbluefin.io/contributing/ for architecture diagram
 ###############################################################################
 
-# OCI context images - imported below and pinned directly in their FROM lines.
-# The base image is pinned in the FROM line below and updated by Renovate.
+# OCI Package repo
+ARG PACKAGE_IMAGE=ghcr.io/projectbluefin/utah-packages
+ARG PACKAGE_IMAGE_SHA=sha256:0f04cff2dd0b085604ff3cd79d538ab14b97cbe356980f7d365a35dfc70c857b
+
+FROM ${PACKAGE_IMAGE_REF} AS packages
+
 FROM ghcr.io/projectbluefin/common:latest@sha256:b7e3487cafe8b21e10bb514f218406548f4c1abef5e444963094cbf2ec60e4b1 AS common
 FROM ghcr.io/ublue-os/brew:latest@sha256:e9a72571b7644b6277f0638b6a3c5e497e265e1098ab91224567acbdeb8b74ea AS brew
+
 
 # OGC kernel RPMs and the NVIDIA open kmod, from ublue-os/akmods.
 #
@@ -187,7 +192,7 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=tmpfs,dst=/boot \
     --mount=type=tmpfs,dst=/tmp \
     install -d -m0755 /etc/yum.repos.d /etc/pki/rpm-gpg \
-    && install -m0644 /ctx/packages/fedora.repo /ctx/packages/terra.repo /etc/yum.repos.d/ \
+    && install -m0644 /ctx/packages/fedora.repo /ctx/packages/terra.repo /ctx/packages/utah.repo /etc/yum.repos.d/ \
     && install -m0644 /ctx/packages/RPM-GPG-KEY-fedora-44-primary /etc/pki/rpm-gpg/ \
     && . /ctx/build/dnf5-retry.sh \
     # 12 rather than the usual 8. This is the first transaction in the build and
