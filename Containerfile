@@ -37,11 +37,29 @@
 # See: https://docs.projectbluefin.io/contributing/ for architecture diagram
 ###############################################################################
 
-# OCI Package repo
+# OCI package factory. Carries a repository of prebuilt RPMs, bind mounted to
+# /etc/utah-packages and read as a file:// dnf5 source.
+#
+# The FROM is a literal reference, not ${ARG} interpolation, for the same reason
+# the akmods and common references are: Buildah does not substitute a global ARG
+# into a FROM line here. `FROM ${PACKAGE_IMAGE_REF}` -- with that name never
+# defined anywhere -- expanded to nothing, and Buildah then reported
+# "no FROM statement found" and failed with exit 125, pointing at the whole
+# Containerfile rather than at the one token that was wrong.
+#
+# Digest only, no tag. This digest is not what :latest currently resolves to
+# (:latest is sha256:5577d71e...), so a tag would assert a relationship that does
+# not hold. The digest is a single-platform manifest, pulls cleanly, and its root
+# holds exactly /repository -- which is the source path both bind mounts name.
+#
+# The ARGs below are the declared source of truth and the Renovate anchor; the
+# FROM, these, and the factory-pin stamp in packages/utah.repo are asserted to
+# agree by tests/contract/utah-packages_test.bats. Three copies of a digest with
+# no check between them is how the stamp and the reference drift apart.
 ARG PACKAGE_IMAGE=ghcr.io/projectbluefin/utah-packages
 ARG PACKAGE_IMAGE_SHA=sha256:0f04cff2dd0b085604ff3cd79d538ab14b97cbe356980f7d365a35dfc70c857b
 
-FROM ${PACKAGE_IMAGE_REF} AS packages
+FROM ghcr.io/projectbluefin/utah-packages@sha256:0f04cff2dd0b085604ff3cd79d538ab14b97cbe356980f7d365a35dfc70c857b AS packages
 
 FROM ghcr.io/projectbluefin/common:latest@sha256:b7e3487cafe8b21e10bb514f218406548f4c1abef5e444963094cbf2ec60e4b1 AS common
 FROM ghcr.io/ublue-os/brew:latest@sha256:e9a72571b7644b6277f0638b6a3c5e497e265e1098ab91224567acbdeb8b74ea AS brew
