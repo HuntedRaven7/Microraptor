@@ -148,7 +148,6 @@ echo "::group:: Install the audio stack"
 #
 # pipewire-alsa is the ALSA compatibility layer, so ordinary desktop apps that
 # only speak ALSA still produce sound.
-dnf install -y @kde-desktop-environment
 dnf install -y plasma-login-manager kcm-plasmalogin
 dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
 	pipewire \
