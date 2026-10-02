@@ -81,7 +81,6 @@ echo "::endgroup::"
 #
 # Sources, and why each one:
 #
-#   mangowm   Terra, 0.17.5-3.fc44. Not in Fedora 44.
 #   quickshell lionheartp/Hyprland COPR. Fedora 44 has 0.2.1; the COPR has 0.3.1.
 #              The COPR version is what current shell configs target, so it wins.
 #   sddm      Fedora 44 proper. No third-party repository needed.
@@ -111,7 +110,7 @@ echo "::endgroup::"
 # is not going to quietly absorb that.
 ###############################################################################
 
-echo "::group:: Install Quickshell"
+echo "::group:: Install Quickshell and Hyprland"
 
 # Quickshell is the toolkit MangoWM's shell ecosystem is built on, and it comes
 # from the same COPR the compositor used to come from. It stayed when the
@@ -130,7 +129,7 @@ echo "::group:: Install Quickshell"
 # dnf5 autodetects a chroot from os-release, gets hummingbird-20251124-x86_64,
 # writes no repo file at all, and the install below fails with "No match for
 # argument: quickshell".
-copr_install_isolated "lionheartp/Hyprland" quickshell
+copr_install_isolated "lionheartp/Hyprland" quickshell hyprland
 
 echo "::endgroup::"
 
@@ -174,7 +173,7 @@ echo "::group:: Install Ghostty and MangoWM from Terra"
 # Terra was installed and enabled by the Containerfile's package sources phase,
 # so it is live here without a per-step --enablerepo. 90-cleanup.sh closes it,
 # along with fedora.repo, before the image is committed.
-dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y ghostty mangowm
+dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y ghostty 
 
 echo "::endgroup::"
 
