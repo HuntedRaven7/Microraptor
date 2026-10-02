@@ -77,7 +77,7 @@ echo "::endgroup::"
 # is not going to quietly absorb that.
 ###############################################################################
 
-echo "::group:: Install the Hyprland compositor and Quickshell"
+echo "::group:: Install Quickshell"
 
 # copr_install_isolated rather than a bare `dnf5 copr enable`: it disables the
 # COPR again immediately, so no third-party repo file ships enabled. The
@@ -85,7 +85,7 @@ echo "::group:: Install the Hyprland compositor and Quickshell"
 # dnf5 autodetects a chroot from os-release, gets hummingbird-20251124-x86_64,
 # writes no repo file at all, and the install below fails with "No match for
 # argument: hyprland".
-copr_install_isolated "lionheartp/Hyprland" hyprland quickshell
+copr_install_isolated "lionheartp/Hyprland" quickshell
 
 echo "::endgroup::"
 
@@ -98,12 +98,12 @@ dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y sddm tailscale
 
 echo "::endgroup::"
 
-echo "::group:: Install Ghostty from Terra"
+echo "::group:: Install Ghostty and MangoWC from Terra"
 
 # Terra was installed and enabled by the Containerfile's package sources phase,
 # so it is live here without a per-step --enablerepo. 90-cleanup.sh closes it,
 # along with fedora.repo, before the image is committed.
-dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y ghostty
+dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y ghostty mangowm
 
 echo "::endgroup::"
 
