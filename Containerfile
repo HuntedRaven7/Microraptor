@@ -246,6 +246,7 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
 ## cannot invalidate the package layer.
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache/libdnf5 \
+    --mount=type=bind,from=packages,source=/repository,target=/etc/utah-packages,ro \
     --mount=type=cache,dst=/var/cache/rpm-ostree \
     --mount=type=tmpfs,dst=/boot \
     --mount=type=tmpfs,dst=/tmp \
