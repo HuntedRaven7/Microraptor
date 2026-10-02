@@ -123,11 +123,19 @@ setup() {
 
 @test "90-cleanup.sh still disables tailscale.repo as the documented backstop" {
     # 30-tailscale.sh.example tells the reader that 90-cleanup.sh disables
-    # tailscale.repo as a backstop. Dropping tailscale from that loop makes the
-    # example's promise false without touching the example.
+    # tailscale.repo as a backstop. Dropping tailscale from the closed set makes
+    # the example's promise false without touching the example.
     grep -qF "90-cleanup.sh also disables tailscale.repo" \
         "${BUILD_DIR}/30-tailscale.sh.example"
-    grep -qE '^for repo_name in .*[[:space:]]tailscale([[:space:]]|;)' "${CLEANUP}"
+    # The closed set is the third_party_repo_files array. Matching on the old
+    # `for repo_name in ...` loop instead would have pinned the mechanism rather
+    # than the promise, and failed for the right change on the wrong grounds.
+    grep -qF 'tailscale.repo' "${CLEANUP}"
+    # And it has to be inside the array, not merely mentioned in a comment.
+    local closed
+    closed="$(sed -n '/^third_party_repo_files=(/,/^)/p' "${CLEANUP}")"
+    [ -n "${closed}" ]
+    grep -qF 'tailscale.repo' <<<"${closed}"
 }
 
 @test "shellcheck is clean on every example" {

@@ -22,11 +22,75 @@ these customizations.
   overlay and package phases need all three
 - `just`, `gum`, `fzf`, `jq` — the `ujust` entry point and its helpers
 - `uupd` — scheduled update policy, from the `ublue-os/packages` COPR
-- `hyprland`, `quickshell` — the Wayland session, from the `lionheartp/Hyprland`
-  COPR
+- `mangowm` — the Wayland compositor, from [Terra](https://repos.fyralabs.com/terra44)
 - `sddm` — the display manager, from Fedora 44
 - `tailscale` — from Fedora 44
-- `ghostty` — from [Terra](https://repos.fyralabs.com/terra44)
+- `ghostty` — from Terra
+- `pipewire`, `wireplumber`, `xdg-desktop-portal` — the audio and portal stack,
+  from Fedora 44
+- The **OGC kernel** (`7.2.8-ogc1.1.fc44`) and the **NVIDIA open kernel module**,
+  from `ublue-os/akmods` — see [Kernel and GPU](#kernel-and-gpu)
+
+### Kernel and GPU
+
+The base ships Hummingbird's `7.2.7-200.fc44` kernel. This image replaces it with
+the Open Gaming Collective build so the NVIDIA kmod has something to match —
+a kmod is compiled against one exact kernel-version-release, so the two cannot
+differ.
+
+That comes from two `ublue-os/akmods` bundles, digest-pinned. They have to move
+together: each ships its own copy of the kernel RPMs, so bumping one alone pairs
+a kernel with modules built for a different one. `build/30-kernel.sh` and
+`build/40-nvidia.sh` record the kernel version and check the kmod against it, and
+fail the build on a mismatch — the failure would otherwise only appear at boot,
+on hardware the build never touches.
+
+The open module covers RTX 20/30/40/50-series and GTX 16-series. Older hardware
+(10-series, 9-series, Quadro P-series) needs the closed module from
+`akmods-nvidia` instead, which is a different bundle and tag.
+
+**Two things this costs you.** Hummingbird's tuned initramfs and its
+`bootc-generic-growpart` service — which grows the root partition on first boot
+in a VM — are built for the base kernel and do not come with the OGC one, so a
+VM may need its disk expanded by the hypervisor. And no i686 multilib is
+installed, which is the same constraint that keeps Steam out. The akmods bundle
+ships 32-bit driver packages that would drag that stack back in, so
+`40-nvidia.sh` filters the bundle by architecture rather than globbing it.
+
+Driver updates do not come from a package repository. The kernel module is a
+pinned OCI bundle, so the driver moves when the akmods digest does.
+
+#### The `kernel-uname-r` shim
+
+`kmod-nvidia` requires `kernel-uname-r = <the exact kernel>`. Fedora's
+`kernel-core` generates that provide in a scriptlet; the OGC `kernel-core` has
+no such scriptlet, and nothing in the bundle provides it, so the kmod cannot
+resolve. A small noarch RPM carrying exactly that provide is built during the
+image build, in a throwaway `shim-build` stage — `rpm-build` is a 54-package
+toolchain that should never pass through a layer of a runtime image. The
+Containerfile's `shim-build` stage reads the kernel version from the same bundle
+the runtime phases install, so the shim cannot describe a different kernel.
+
+#### The NEGATIVO17 repository
+
+`nvidia-driver-selinux` is in neither the akmods bundle nor Fedora 44. It comes
+from [negativo17](https://negativo17.org/repos/nvidia/), whose repository
+definition ships inside `ublue-os-nvidia-addons` — which is why that package is
+installed unconditionally rather than only for Secure Boot signing as its name
+suggests. Two corrections are needed before the repository is usable, both
+invisible in the failure: its files interpolate `$releasever`, which on this base
+expands to a date string rather than a Fedora version, so every baseurl 404s and
+`dnf5` reports an enabled repository holding zero packages; and the files ship
+disabled. `40-nvidia.sh` fixes the version, enables the repository, and then
+asserts it actually resolves packages.
+
+`nvidia-container-toolkit.repo` and the `fedora-nvidia-lts` (closed driver) repo
+are deliberately left disabled. The first is for GPU access from containers,
+which this image does not set up; the second would conflict with the open module.
+
+To drop either half: delete `40-nvidia.sh` and its `RUN` block to keep the OGC
+kernel without the GPU driver, or delete both phases to return to Hummingbird's
+own kernel.
 
 ### Not installed
 
@@ -61,15 +125,14 @@ these customizations.
 
 ### Desktop configuration is not included
 
-This image ships the compositor, the shell, the display manager and the session
-files those packages provide. It ships **no Hyprland or Quickshell
-configuration** — no `hyprland.conf`, no `config.hypr`, no Quickshell shell.
+This image ships the compositor, the display manager and the session file those
+packages provide. It ships **no MangoWM configuration** — no `mangorc`, no
+`mangowmrc`, and nothing else session-specific.
 
 That means SDDM comes up with a session that exits immediately until you supply
-one. Create `~/.config/hypr/hyprland.conf` (or a
-`/usr/share/wayland-sessions/hyprland.desktop` entry pointing at your own
-entrypoint), or use chezmoi from the Brewfile to manage it. Everything in the
-`dots` repository is yours to bring across.
+one. Write a `mangorc`, or point a `/usr/share/wayland-sessions/*.desktop` entry
+at your own entrypoint, or use `chezmoi` from the Brewfile to manage it.
+Everything in the `dots` repository is yours to bring across.
 
 _Last updated: 2026-10-02_
 

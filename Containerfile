@@ -42,6 +42,59 @@
 FROM ghcr.io/projectbluefin/common:latest@sha256:b7e3487cafe8b21e10bb514f218406548f4c1abef5e444963094cbf2ec60e4b1 AS common
 FROM ghcr.io/ublue-os/brew:latest@sha256:e9a72571b7644b6277f0638b6a3c5e497e265e1098ab91224567acbdeb8b74ea AS brew
 
+# OGC kernel RPMs and the NVIDIA open kmod, from ublue-os/akmods.
+#
+# Two separate bundles, and they have to come from the same build. Each ships its
+# own copy of the kernel RPMs, and a kmod is compiled against one exact
+# kernel-version-release -- so pinning only the kmod would let the kernel move
+# under it. 30-kernel.sh and 40-nvidia.sh check the two versions against each
+# other and fail the build on a mismatch, which is why a bump cannot silently
+# produce an unbootable pair.
+#
+# Written as literal references rather than ${ARG} interpolation, like the
+# common and brew lines above. An ARG declared before the first FROM is a global
+# ARG, which Buildah does not substitute into a FROM line here: it reports the
+# ARG as a stage step and then fails with
+# `invalid base image specification "@"`. A literal reference also gives
+# Renovate a digest it can match directly.
+#
+# `nvidia-open` is the open kernel module, which covers RTX 20/30/40/50-series
+# and GTX 16-series. Older hardware needs akmods-nvidia (the closed module).
+FROM ghcr.io/ublue-os/akmods:ogc-44@sha256:d2ed03b865737b5c1dcd7d6d9a8a7c852ac77a9682af402564c40eca144fea59 AS akmods-common
+FROM ghcr.io/ublue-os/akmods-nvidia-open:ogc-44@sha256:4ca0bb7561c10212dc930fd8058d54748da8022efe44d875f269b7f00e131ca4 AS akmods-nvidia
+
+# Builds the kernel-uname-r shim in a stage that is thrown away.
+#
+# The kmod requires kernel-uname-r = <the OGC kernel>. That is a synthetic
+# provide: Fedora's kernel-core generates it in a scriptlet, the OGC kernel-core
+# has no such scriptlet, and nothing in the akmods bundle provides it. Without
+# this the kmod cannot resolve and 40-nvidia.sh fails.
+#
+# rpm-build is a 54-package dependency chain, so it is installed here and never
+# in the image. Building it in 40-nvidia.sh would mean gcc and binutils passing
+# through a layer of a runtime image -- the opposite of what this base is. The
+# result is copied out as a single small RPM and the toolchain disappears with
+# the stage.
+# Built on Fedora rather than on the image's own base. Both behave the same for
+# this spec -- the missing %install/%files problem below was not Hummingbird's --
+# but Fedora 44 is where rpm-build is exercised most heavily, so it is the base
+# whose packaging behaviour is least likely to surprise. Nothing from this stage
+# reaches the image except the one small RPM.
+FROM docker.io/library/fedora:44@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80 AS shim-build
+# Self-contained apart from the one script below: the kernel version it needs
+# comes from the same akmods bundle the runtime phases use, so the shim cannot
+# describe a kernel other than the one being installed. It needs no repo
+# definitions of its own -- this base is plain Fedora and enables its own.
+#
+# The script is copied in directly rather than through the ctx stage, because ctx
+# copies /out from this stage and mounting ctx here would be a dependency cycle.
+# It has to be executable for the same reason every other phase script is.
+COPY --chmod=755 build/35-kernel-uname-r-shim.sh /build/35-kernel-uname-r-shim.sh
+RUN --mount=type=bind,from=akmods-common,source=/,target=/akmods-common,ro \
+    --mount=type=cache,dst=/var/cache/libdnf5 \
+    --mount=type=tmpfs,dst=/tmp \
+    /build/35-kernel-uname-r-shim.sh
+
 # Context stage - combine local and imported OCI container resources
 FROM scratch AS ctx
 
@@ -53,6 +106,11 @@ COPY packages /packages
 # Copy from OCI containers to distinct subdirectories to avoid conflicts
 COPY --from=common /system_files /oci/common
 COPY --from=brew /system_files /oci/brew
+
+# The kernel-uname-r shim, one small RPM. Copied into the context rather than
+# bind mounted so 40-nvidia.sh can install it by path the way it installs every
+# other RPM, without a second mount on that step.
+COPY --from=shim-build /out /out
 
 # Base Image - Hummingbird (Fedora 44 packages, minimal, no desktop)
 # Renovate keeps the digest pin below up to date. Do not drop the digest or add
@@ -132,7 +190,17 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     && install -m0644 /ctx/packages/fedora.repo /ctx/packages/terra.repo /etc/yum.repos.d/ \
     && install -m0644 /ctx/packages/RPM-GPG-KEY-fedora-44-primary /etc/pki/rpm-gpg/ \
     && . /ctx/build/dnf5-retry.sh \
-    && dnf5_retry 8 install -y dnf5-plugins rsync flatpak \
+    # 12 rather than the usual 8. This is the first transaction in the build and
+    # the one that downloads the most packages, so it has the most chances to hit
+    # the mirror flake -- and a failure here costs the whole build, because every
+    # later phase runs in the same RUN chain.
+    #
+    # The flake is not steady-state bad: measured on this network, the same URL
+    # returns 200 and 404 within seconds of itself, so windows of seconds-long
+    # and minutes-long failure both occur. A sustained window is what exhausts a
+    # small attempt count, and a longer one rides it out at the cost of a slower
+    # genuine failure. Genuine failures still fail -- see dnf5-retry.sh.
+    && dnf5_retry 12 install -y dnf5-plugins rsync flatpak \
     && dnf5 config-manager setopt keepcache=1 install_weak_deps=0
 
 ### RUNTIME OVERLAYS
@@ -157,6 +225,30 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=tmpfs,dst=/boot \
     --mount=type=tmpfs,dst=/tmp \
     /ctx/build/20-packages-and-services.sh
+
+### OGC KERNEL
+## Swaps Hummingbird's kernel for the Open Gaming Collective build the akmods
+## kmods are compiled against. Bind mounted rather than copied: the bundle is
+## ~150 MB of RPMs that must not ship in the image, and a COPY would leave them
+## in a layer unless something removed them afterwards.
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=bind,from=akmods-common,source=/,target=/akmods-common,ro \
+    --mount=type=cache,dst=/var/cache/libdnf5 \
+    --mount=type=tmpfs,dst=/boot \
+    --mount=type=tmpfs,dst=/tmp \
+    /ctx/build/30-kernel.sh
+
+### NVIDIA
+## The open kernel module, plus the userspace driver. Split from the kernel phase
+## so either can be reverted on its own: delete this RUN block and 40-nvidia.sh
+## to drop back to a plain OGC kernel, or delete both to return to Hummingbird's
+## own kernel entirely.
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=bind,from=akmods-nvidia,source=/,target=/akmods-nvidia,ro \
+    --mount=type=cache,dst=/var/cache/libdnf5 \
+    --mount=type=tmpfs,dst=/boot \
+    --mount=type=tmpfs,dst=/tmp \
+    /ctx/build/40-nvidia.sh
 
 ### CLEANUP
 ## Finalises package and Flatpak sources, then prunes build artifacts before

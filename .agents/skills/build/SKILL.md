@@ -49,6 +49,27 @@ Every OCI reference is pinned by digest and updated by Renovate: the base image,
 `projectbluefin/common`, `ublue-os/brew`, `bootc-image-builder`, and the GitHub
 Actions. Do not hand-edit a digest; let Renovate propose it.
 
+**Resolve a digest for the platform you build, not from the manifest list.**
+`skopeo inspect --raw` returns the index, and the per-platform entries inside it
+are not always digests the registry will serve for a direct `image@digest` pull —
+taking one from there produces a reference that is 64 hex characters, names the
+right image, and fails to pull with `manifest unknown`. Use the platform-resolved
+form, which is the digest `FROM` should carry:
+
+```sh
+skopeo inspect docker://quay.io/fedora/fedora:44 --format '{{.Digest}}'
+```
+
+Confirm it before wiring it in — a bad digest fails at the `FROM` line, after
+the whole build has been scheduled:
+
+```sh
+skopeo inspect --raw "docker://<image>@<digest>" >/dev/null && echo pullable
+```
+
+Renovate updates whatever digest is in the `FROM` line, so a correct one is
+maintained; a wrong one is maintained just as faithfully.
+
 The base image's `FROM` line is the only place the base is chosen, so the Fedora
 major cannot desync the way a hand-maintained `FEDORA_MAJOR_VERSION` ARG could.
 Two readers derive it from that base: `just build` parses the tag for the version

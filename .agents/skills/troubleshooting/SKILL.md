@@ -27,6 +27,9 @@ CI runs the same checks; running them locally only makes the pull request quiet.
 | a third-party repository is live in the final image | a script enabled it and did not disable it | use `copr_install_isolated`, or disable it explicitly |
 | the package layer rebuilds on every overlay edit | packages drifted into the overlay phase | keep packages in `20-packages-and-services.sh` |
 | hadolint flags the Containerfile | a rule in `.github/hadolint.yaml` | fix it, or add a suppression with a reason |
+| `Librepo error: Cannot download ...: All mirrors were tried` on a package that exists | the Fedora CDN is returning 404 for a fraction of requests, including for URLs it just served | **not** a missing package. Probe the exact URL in the log twice or three times before believing it. `dnf5_retry` exists for this; if a whole window of attempts fails, the window was sustained and the count is too low |
+| `reading manifest <digest>: manifest unknown` | the digest was taken from a manifest list rather than resolved for the platform | `skopeo inspect docker://<image>:<tag> --format '{{.Digest}}'`, then confirm with `skopeo inspect --raw docker://<image>@<digest>` |
+| `dnf5 makecache` succeeds but the install still 404s | `makecache` warms metadata, not packages | expected; the flake is in the `.rpm` download, so only retrying the whole transaction helps |
 
 ## CI
 

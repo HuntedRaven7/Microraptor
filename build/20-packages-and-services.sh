@@ -48,20 +48,25 @@ echo "::endgroup::"
 ###############################################################################
 # Wayland desktop
 #
-# A Hyprland session on SDDM. Nothing here configures Hyprland or Quickshell:
-# those are the user's to supply, and this image ships only the compositor, the
-# shell, the display manager and the session file the RPMs provide. Without a
-# hyprland.conf and a config.hypr there is no session to log into, which is a
-# runtime concern and not a build one.
+# A MangoWM session on SDDM. Nothing here configures MangoWM: the compositor, the
+# display manager and the session file the RPMs provide are the whole
+# deliverable. A session that exits immediately until you supply a configuration
+# is a runtime concern, not a build one.
 #
 # Sources, and why each one:
 #
-#   hyprland   lionheartp/Hyprland COPR. Fedora 44 does not carry it at all.
-#   quickshell same COPR. Fedora 44 has 0.2.1; the COPR has 0.3.1. The COPR
-#              version is what pairs with the compositor above, so it wins.
-#   sddm       Fedora 44 proper. No third-party repository needed.
-#   tailscale  Fedora 44 proper. No third-party repository needed.
-#   ghostty    Terra, via packages/terra.repo.
+#   mangowm   Terra, 0.17.5-3.fc44. Not in Fedora 44.
+#   sddm      Fedora 44 proper. No third-party repository needed.
+#   tailscale Fedora 44 proper. No third-party repository needed.
+#   ghostty   Terra, via packages/terra.repo.
+#   pipewire  Fedora 44 proper. See the note below on why it is listed.
+#
+# This was Hyprland and Quickshell for one commit. Both came from the
+# lionheartp/Hyprland COPR, which is also where MangoWM is published -- but Terra
+# carries it too, and taking it from Terra means this image needs no third-party
+# COPR at all. Quickshell went with the swap: it is the shell Hyprland's
+# ecosystem is built around, and MangoWM has no equivalent role for it. Nothing
+# else in the image depends on it.
 #
 # Steam is deliberately absent. It is in Terra and it does install, but it pulls
 # 32-bit libraries that need Fedora's openssl-libs, and Hummingbird pins its own
@@ -77,15 +82,30 @@ echo "::endgroup::"
 # is not going to quietly absorb that.
 ###############################################################################
 
-echo "::group:: Install Quickshell"
 
-# copr_install_isolated rather than a bare `dnf5 copr enable`: it disables the
-# COPR again immediately, so no third-party repo file ships enabled. The
-# Containerfile's COPR_CHROOT is what makes the enable succeed here — without it
-# dnf5 autodetects a chroot from os-release, gets hummingbird-20251124-x86_64,
-# writes no repo file at all, and the install below fails with "No match for
-# argument: hyprland".
-copr_install_isolated "lionheartp/Hyprland" quickshell
+
+echo "::group:: Install the audio stack"
+
+# PipeWire, WirePlumber and the desktop portal, all in Fedora 44 proper.
+#
+# Listed explicitly because neither SDDM nor MangoWM pulls them. A compositor
+# links libpulse and libpipewire if it wants audio, but nothing here depends on a
+# sound server, and this base has no GNOME or Plasma to pull one in. Without
+# them an installed system has no audio at all.
+#
+# xdg-desktop-portal is the one that is easy to overlook and is not optional: it
+# is how a session talks to the host for Flatpak permission prompts, screen
+# sharing and document portals. Without it those silently stop working.
+#
+# pipewire-alsa is the ALSA compatibility layer, so ordinary desktop apps that
+# only speak ALSA still produce sound.
+dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
+	pipewire \
+	pipewire-alsa \
+	pipewire-utils \
+	wireplumber \
+	xdg-desktop-portal \
+	xdg-desktop-portal-gtk
 
 echo "::endgroup::"
 
@@ -98,7 +118,7 @@ dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y sddm tailscale
 
 echo "::endgroup::"
 
-echo "::group:: Install Ghostty and MangoWC from Terra"
+echo "::group:: Install Ghostty and MangoWM from Terra"
 
 # Terra was installed and enabled by the Containerfile's package sources phase,
 # so it is live here without a per-step --enablerepo. 90-cleanup.sh closes it,
@@ -115,7 +135,7 @@ echo "::group:: Enable desktop services"
 # thing that survives it.
 #
 # sddm is the display manager, so it takes over from the base's getty-on-tty
-# arrangement. It has no session to offer until the user supplies a Hyprland
+# arrangement. It has no session to offer until the user supplies a MangoWM
 # configuration, which is expected: this image ships the compositor, not a
 # desktop.
 systemctl enable sddm.service

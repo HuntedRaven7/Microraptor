@@ -84,9 +84,9 @@ teardown() {
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"::group:: Install Default Packages"* ]]
 	[[ "$output" == *"::group:: Install uupd"* ]]
-	[[ "$output" == *"::group:: Install the Hyprland compositor and Quickshell"* ]]
+	[[ "$output" == *"::group:: Install the audio stack"* ]]
 	[[ "$output" == *"::group:: Install SDDM and Tailscale"* ]]
-	[[ "$output" == *"::group:: Install Ghostty from Terra"* ]]
+	[[ "$output" == *"::group:: Install Ghostty and MangoWM from Terra"* ]]
 	[[ "$output" == *"::group:: Enable desktop services"* ]]
 	[[ "$output" == *"::endgroup::"* ]]
 }
@@ -102,19 +102,42 @@ teardown() {
 @test "20-packages-and-services: installs uupd from its COPR in isolation" {
 	# copr_install_isolated enables the repo, disables it again, then installs
 	# with a one-shot --enablerepo, so no COPR file persists enabled.
+	# uupd is the only COPR left: the compositor moved to Terra, so this image
+	# needs no COPR beyond ublue's own.
 	run bash "${SCRIPT}"
 	[ "$status" -eq 0 ]
 
 	mapfile -t calls <"${DNF5_LOG}"
-	# Two COPRs are installed from (ublue-os/packages for uupd, lionheartp for
-	# the compositor), so the log carries eight calls: four per COPR, with the
-	# desktop steps in between.
 	[ "${calls[1]}" = "-y copr enable ublue-os/packages" ]
 	[ "${calls[2]}" = "-y copr disable ublue-os/packages" ]
 	[ "${calls[3]}" = "-y install --enablerepo=copr:copr.fedorainfracloud.org:ublue-os:packages uupd" ]
-	[ "${calls[4]}" = "-y copr enable lionheartp/Hyprland" ]
-	[ "${calls[5]}" = "-y copr disable lionheartp/Hyprland" ]
-	[ "${calls[6]}" = "-y install --enablerepo=copr:copr.fedorainfracloud.org:lionheartp:Hyprland hyprland quickshell" ]
+}
+
+@test "20-packages-and-services: takes the compositor from Terra, not a COPR" {
+	# MangoWM is published in both the lionheartp COPR and Terra. Terra is used
+	# so the image needs no third-party COPR for its desktop, and because Terra
+	# is already enabled for ghostty -- a COPR here would mean enabling and
+	# disabling a second repository for a package the enabled one already has.
+	run bash "${SCRIPT}"
+	[ "$status" -eq 0 ]
+
+	grep -qx 'install -y ghostty mangowm' "${DNF5_LOG}"
+	run grep -q 'lionheartp' "${DNF5_LOG}"
+	[ "$status" -ne 0 ]
+}
+
+@test "20-packages-and-services: installs the audio stack in one transaction" {
+	# PipeWire and friends have to be named: neither SDDM nor MangoWM depends on
+	# a sound server, and this base has no GNOME or Plasma pulling one in. An
+	# installed system with no audio at all is the failure this prevents.
+	run bash "${SCRIPT}"
+	[ "$status" -eq 0 ]
+
+	grep -q 'pipewire' "${DNF5_LOG}"
+	grep -q 'wireplumber' "${DNF5_LOG}"
+	# xdg-desktop-portal is not optional: it carries Flatpak permission prompts,
+	# screen sharing and document portals.
+	grep -q 'xdg-desktop-portal' "${DNF5_LOG}"
 }
 
 @test "20-packages-and-services: every COPR it touches is disabled again" {
@@ -127,8 +150,8 @@ teardown() {
 	# Counted with grep -c rather than a ((x++)) loop: `((x++))` exits non-zero
 	# when the counter is still 0, which `set -e` in the test body would read as
 	# a failure before the assertion ever runs.
-	[ "$(grep -c 'copr enable' "${DNF5_LOG}")" -eq 2 ]
-	[ "$(grep -c 'copr disable' "${DNF5_LOG}")" -eq 2 ]
+	[ "$(grep -c 'copr enable' "${DNF5_LOG}")" -eq 1 ]
+	[ "$(grep -c 'copr disable' "${DNF5_LOG}")" -eq 1 ]
 }
 
 @test "20-packages-and-services: installs the desktop set from the expected sources" {
@@ -138,8 +161,8 @@ teardown() {
 	run bash "${SCRIPT}"
 	[ "$status" -eq 0 ]
 
-	grep -qx 'install -y sddm tailscale' "${DNF5_LOG}"
-	grep -qx 'install -y ghostty' "${DNF5_LOG}"
+	grep -q 'install -y sddm tailscale' "${DNF5_LOG}"
+	grep -qx 'install -y ghostty mangowm' "${DNF5_LOG}"
 }
 
 @test "20-packages-and-services: does not install Steam" {
