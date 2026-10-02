@@ -160,6 +160,15 @@ dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
 
 echo "::endgroup::"
 
+echo "::group:: Install KDE"
+
+# Both are in Fedora 44 proper. Tailscale is not a third-party repository
+# dependency on this base, which is worth stating because the 30-tailscale
+# example in build/ adds one.
+dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y --allowerasing @kde-desktop-environment 
+
+echo "::endgroup::"
+
 echo "::group:: Install SDDM and Tailscale"
 
 # Both are in Fedora 44 proper. Tailscale is not a third-party repository
