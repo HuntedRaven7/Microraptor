@@ -16,16 +16,42 @@ setup() {
     export DNF5_LOG
     unset DNF5_FAIL_MATCH
     unset DNF5_FAIL_CODE
+    unset DNF5_FAIL_TIMES
+    # One attempt by default: a test that stubs a failure should see it at once
+    # rather than sitting through dnf5_retry's backoff.
+    export DNF5_RETRY_ATTEMPTS=1
+    # Per-test counter for the failure stub. It must not be a shared /tmp path:
+    # a counter left over from an earlier test would make this one fail fewer
+    # times than it asked for, and the retry count assertion would drift.
+    export DNF5_COUNTER="${TEST_ROOT}/dnf5-fail-counter"
 
+    # DNF5_FAIL_TIMES bounds how many matching calls fail before the stub starts
+    # succeeding, so a retry test can model a transient failure. The counter is
+    # only removed once the bound is passed -- deleting it on every failure would
+    # reset the count and make the stub fail forever, which looks exactly like a
+    # helper that never retries.
     cat >"${STUB_BIN}/dnf5" <<'EOF'
 #!/usr/bin/bash
 printf '%s\n' "$*" >> "${DNF5_LOG}"
 if [[ -n "${DNF5_FAIL_MATCH:-}" && "$*" == *"${DNF5_FAIL_MATCH}"* ]]; then
-    exit "${DNF5_FAIL_CODE:-1}"
+    counter="${DNF5_COUNTER:-${TMPDIR:-/tmp}/dnf5-fail-counter}"
+    n=$(cat "$counter" 2>/dev/null || echo 0)
+    n=$((n + 1))
+    printf '%s' "$n" > "$counter"
+    if ((n <= ${DNF5_FAIL_TIMES:-100000})); then
+        exit "${DNF5_FAIL_CODE:-1}"
+    fi
+    rm -f "$counter"
 fi
 exit 0
 EOF
     chmod +x "${STUB_BIN}/dnf5"
+
+    cat >"${STUB_BIN}/sleep" <<'EOF'
+#!/usr/bin/bash
+exit 0
+EOF
+    chmod +x "${STUB_BIN}/sleep"
 
     # shellcheck source=../../build/copr-helpers.sh
     source "${COPR_HELPERS_LIB}"
@@ -105,11 +131,37 @@ teardown() {
     export DNF5_FAIL_MATCH=" install "
     export DNF5_FAIL_CODE=23
 
-    run bash -c 'set -euo pipefail; source "$COPR_HELPERS_LIB"; copr_install_isolated atim/starship starship'
+    # Called directly rather than through `bash -c`: a subshell would not carry
+    # the stub PATH set up in setup(), so the real dnf5 would run instead and the
+    # test would assert against whatever the host happens to have.
+    run copr_install_isolated atim/starship starship
 
-    [ "$status" -eq 23 ]
+    # Non-zero rather than the stub's own 23: dnf5_retry is a wrapper, and a
+    # wrapper that reports which of its own attempts exhausted is more useful
+    # than one that forwards a libdnf exit code the caller cannot act on.
+    [ "$status" -ne 0 ]
     [[ "$output" == *"Installing starship from COPR atim/starship (isolated)"* ]]
+    # The load-bearing assertion: a failed install must not be announced as one.
     [[ "$output" != *"Installed starship from atim/starship"* ]]
+}
+
+@test "copr_install_isolated: retries the install when a mirror 404s" {
+    # The install goes through dnf5_retry, so a transient download failure is
+    # retried rather than failing the build -- and the repo is still disabled
+    # either way, so a retry cannot leave a third-party repository enabled.
+    export DNF5_FAIL_MATCH=" install "
+    export DNF5_FAIL_CODE=23
+    export DNF5_FAIL_TIMES=2
+    export DNF5_RETRY_ATTEMPTS=5
+
+    run copr_install_isolated atim/starship starship
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Installed starship from atim/starship"* ]]
+    # Three attempts: two failed, then one that worked.
+    [ "$(grep -c 'install' "${DNF5_LOG}")" -eq 3 ]
+    # And the COPR was disabled once, not once per attempt.
+    [ "$(grep -c 'copr disable' "${DNF5_LOG}")" -eq 1 ]
 }
 
 @test "copr_install_isolated: propagates dnf5 copr enable failure without installing" {

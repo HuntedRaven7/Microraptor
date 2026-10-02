@@ -37,6 +37,28 @@ installed. Hummingbird already ships a working definition of its own repository,
 with the signing key in the rpmdb; the copy here records why it is safe
 (`gpgcheck=1`, `priority=10`) without narrowing it to one architecture.
 
+`terra.repo` **is** installed, and is the one repository here with
+`gpgcheck=0`. Terra publishes no key at a stable URL — `RPM-GPG-KEY-terra` 404s,
+and `terra-release`, the package that would carry it, lives only inside Terra
+itself. That is a bootstrap cycle with nothing to verify against, so the key
+check is off and `90-cleanup.sh` closes the repository before the image is
+committed. Note the baseurl is spelled with a literal `44`, not `$releasever`:
+this base's `VERSION_ID` is a build date, so `$releasever` would expand to
+`20251124` and 404.
+
+## A COPR that enables nothing
+
+`dnf5 copr enable <project>` without an explicit chroot autodetects one from
+the base's `os-release`. On a base whose `VERSION_ID` is not a Fedora release —
+Hummingbird reports `20251124` — it resolves to `hummingbird-20251124-x86_64`,
+which no COPR carries. The command then **exits zero, writes no repo file, and
+installs nothing**, and the only symptom is a later
+`No match for argument: <package>`.
+
+`copr-helpers.sh` reads `COPR_CHROOT` for this. The Containerfile sets it; a
+base whose `os-release` reports a real release leaves it unset and gets working
+autodetection.
+
 `90-cleanup.sh` flips `fedora.repo` to `enabled=0`. Fedora is a build-time source
 only, so an installed system resolves just the base's own rebuilt RPMs.
 

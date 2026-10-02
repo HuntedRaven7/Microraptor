@@ -108,32 +108,31 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
 ##   - rsync, which 10-overlay.sh uses for every overlay
 ##   - flatpak, which 10-overlay.sh's units and the Flathub remote need
 ##
+## Terra goes in here rather than in the package phase: the package phase has to
+## resolve ghostty from it, and a repository a later step enables is one that
+## phase cannot see. 90-cleanup.sh closes it along with fedora.repo.
+##
 ## `config-manager` is itself a plugin subcommand, so dnf5-plugins has to be
 ## installed before the dnf settings can be set at all.
 ##
-## The install retry is not papering over a misconfiguration. The Fedora mirrors
-## return 404 for a fraction of package requests through no fault of this setup --
-## measured at roughly one in three builds here, failing on a different package
-## each time -- and without the retry a correct build fails intermittently. The
-## retry wraps the transaction rather than a preceding `makecache`, because it is
-## the download of the .rpm itself that 404s; a warmed metadata cache does not
-## help. `--setopt=retries=N` does not cover it either: that is libdnf's
-## per-request retry, and a mirror that answers 404 has nothing to retry.
+## The install goes through dnf5_retry, which is not papering over a
+## misconfiguration. The mirrors return 404 for a fraction of .rpm requests
+## through no fault of this setup -- measured at roughly one in three, on a
+## different package each time -- so a build that runs once fails
+## intermittently for reasons unrelated to what it is building. The retry wraps
+## the transaction rather than warming the metadata cache first, because it is
+## the .rpm download that 404s; `--setopt=retries=N` does not cover it either,
+## since that retries one request against one mirror and a mirror answering 404
+## has nothing to retry. build/dnf5-retry.sh carries the full reasoning.
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache/libdnf5 \
     --mount=type=tmpfs,dst=/boot \
     --mount=type=tmpfs,dst=/tmp \
     install -d -m0755 /etc/yum.repos.d /etc/pki/rpm-gpg \
-    && install -m0644 /ctx/packages/fedora.repo /etc/yum.repos.d/ \
+    && install -m0644 /ctx/packages/fedora.repo /ctx/packages/terra.repo /etc/yum.repos.d/ \
     && install -m0644 /ctx/packages/RPM-GPG-KEY-fedora-44-primary /etc/pki/rpm-gpg/ \
-    && sh -c 'installed=0; for attempt in 1 2 3 4 5; do \
-         if dnf5 install -y dnf5-plugins rsync flatpak; then installed=1; break; fi; \
-         echo "dnf5 install failed (attempt ${attempt}/5); retrying" >&2; \
-         sleep $((attempt * 5)); \
-       done; \
-       if [ "${installed}" != 1 ]; then \
-         echo "::error::dnf5 install failed after 5 attempts" >&2; exit 1; \
-       fi' \
+    && . /ctx/build/dnf5-retry.sh \
+    && dnf5_retry 8 install -y dnf5-plugins rsync flatpak \
     && dnf5 config-manager setopt keepcache=1 install_weak_deps=0
 
 ### RUNTIME OVERLAYS

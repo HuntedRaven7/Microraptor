@@ -45,8 +45,14 @@ done
 # fedora.repo, so the file is matched by name rather than by stanza id.
 disable_repo_file "${REPOS_DIR}/fedora.repo"
 
+# Terra is the same arrangement: needed to resolve ghostty during the build,
+# closed here so an installed system does not pull from a repository that
+# carries no GPG key. `gpgcheck=0` is why that matters more here than for the
+# others -- there is no signature on a Terra package for the policy to check.
+disable_repo_file "${REPOS_DIR}/terra.repo"
+
 # Fail loudly rather than shipping a third-party repository that is still live.
-for repo_file in "${REPOS_DIR}"/_copr:*.repo "${REPOS_DIR}"/_copr_*.repo "${REPOS_DIR}"/rpmfusion-*.repo "${REPOS_DIR}"/fedora.repo; do
+for repo_file in "${REPOS_DIR}"/_copr:*.repo "${REPOS_DIR}"/_copr_*.repo "${REPOS_DIR}"/rpmfusion-*.repo "${REPOS_DIR}"/fedora.repo "${REPOS_DIR}"/terra.repo; do
 	[[ -f "${repo_file}" ]] || continue
 	if grep -qE '^enabled=1' "${repo_file}"; then
 		echo "::error::third-party repository still enabled: $(basename "${repo_file}")" >&2

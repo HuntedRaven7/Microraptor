@@ -34,13 +34,14 @@ setup() {
 	touch "${SANDBOX}/.gitkeep"
 	touch "${SANDBOX}/run/dnf/state"
 
-	# One repository file per shape the script disables, plus a Fedora repo it
-	# must leave alone.
+	# One repository file per shape the script disables, plus the build-time
+	# Fedora and Terra repos it must close.
 	printf '[copr]\nenabled=1\n' \
 		>"${REPOS_DIR}/_copr:copr.fedorainfracloud.org:ublue-os:packages.repo"
 	printf '[rpmfusion]\nenabled=1\n' >"${REPOS_DIR}/rpmfusion-free.repo"
 	printf '[multimedia]\nenabled=1\n' >"${REPOS_DIR}/fedora-multimedia.repo"
 	printf '[fedora]\nenabled=1\n' >"${REPOS_DIR}/fedora.repo"
+	printf '[terra]\nenabled=1\n' >"${REPOS_DIR}/terra.repo"
 
 	export PATH="${STUB_BIN}:${PATH}"
 	export CLEAN_ROOT="${SANDBOX}"
@@ -165,10 +166,24 @@ EOF
 	grep -q '^enabled=0' "${REPOS_DIR}/_copr:copr.fedorainfracloud.org:ublue-os:packages.repo"
 	grep -q '^enabled=0' "${REPOS_DIR}/rpmfusion-free.repo"
 	grep -q '^enabled=0' "${REPOS_DIR}/fedora-multimedia.repo"
-	# Fedora is enabled at build time -- a base with no repository of its own
-	# needs it to install anything -- and closed here, so an installed system
-	# resolves only the base's own rebuilt RPMs.
+	# Both are enabled at build time -- a base with no repository of its own
+	# needs fedora to install anything, and ghostty only exists in Terra -- and
+	# closed here, so an installed system resolves only the base's own rebuilt
+	# RPMs.
 	grep -q '^enabled=0' "${REPOS_DIR}/fedora.repo"
+	grep -q '^enabled=0' "${REPOS_DIR}/terra.repo"
+}
+
+@test "90-cleanup: closes the unsigned repository too" {
+	# Terra ships no usable GPG key, so its packages are unverified by
+	# construction. That is precisely why it must not be left enabled on an
+	# installed system: there is no signature for the container trust policy to
+	# check, and the image would silently pull from it forever.
+	run_cleanup
+	[ "$status" -eq 0 ]
+
+	run grep -q '^enabled=1' "${REPOS_DIR}/terra.repo"
+	[ "$status" -ne 0 ]
 }
 
 @test "90-cleanup: closes every stanza in the build-time Fedora repository" {

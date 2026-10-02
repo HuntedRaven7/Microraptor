@@ -22,6 +22,19 @@ these customizations.
   overlay and package phases need all three
 - `just`, `gum`, `fzf`, `jq` — the `ujust` entry point and its helpers
 - `uupd` — scheduled update policy, from the `ublue-os/packages` COPR
+- `hyprland`, `quickshell` — the Wayland session, from the `lionheartp/Hyprland`
+  COPR
+- `sddm` — the display manager, from Fedora 44
+- `tailscale` — from Fedora 44
+- `ghostty` — from [Terra](https://repos.fyralabs.com/terra44)
+
+### Not installed
+
+- **Steam.** It is available in Terra and does resolve, but installing it pulls
+  32-bit libraries that need Fedora's `openssl-libs`, and Hummingbird pins its
+  own rebuilt `3.5.8-0.1.hum1` through `openssl-fips-provider-upstream`. dnf5
+  refuses the transaction rather than silently dropping packages. A working
+  Steam needs a container-toolbox-style chroot or a Fedora base.
 
 ### Added Applications (Runtime)
 
@@ -30,11 +43,13 @@ these customizations.
 
 ### Removed or Disabled
 
-- The Fedora repositories are enabled for the build and disabled by
+- The Fedora and Terra repositories are enabled for the build and disabled by
   `90-cleanup.sh`. Hummingbird carries no Fedora repo of its own, so the build
   cannot install anything without `packages/fedora.repo` — but an installed
   system resolves only Hummingbird's rebuilt RPMs, so a user cannot install a
   Fedora package that was never part of this image's tested buildroot.
+  Every COPR is enabled and disabled inside a single transaction, so no
+  third-party repo file ships enabled either.
 
 ### Configuration Changes
 
@@ -42,9 +57,19 @@ these customizations.
   `projectbluefin/common`'s shared layer
 - `uupd.timer` and `uupd-resume.timer` enabled; `rpm-ostreed-automatic.timer`
   disabled where the base has one
-- **No desktop.** Hummingbird is a minimal, headless base: no GNOME, no display
-  manager. The Flatpak and Homebrew machinery works, but there is no session to
-  log into yet.
+- `sddm.service` and `tailscaled.service` enabled
+
+### Desktop configuration is not included
+
+This image ships the compositor, the shell, the display manager and the session
+files those packages provide. It ships **no Hyprland or Quickshell
+configuration** — no `hyprland.conf`, no `config.hypr`, no Quickshell shell.
+
+That means SDDM comes up with a session that exits immediately until you supply
+one. Create `~/.config/hypr/hyprland.conf` (or a
+`/usr/share/wayland-sessions/hyprland.desktop` entry pointing at your own
+entrypoint), or use chezmoi from the Brewfile to manage it. Everything in the
+`dots` repository is yours to bring across.
 
 _Last updated: 2026-10-02_
 
@@ -100,6 +125,16 @@ payload, so a malformed `FROM` breaks local builds only.
 A base with no Fedora repository of its own also needs `packages/fedora.repo`,
 installed by the Containerfile before the first transaction. Hummingbird is that
 case; a Fedora desktop base is not.
+
+`packages/terra.repo` is installed the same way, for `ghostty`.
+
+One trap worth knowing about, because it fails silently: `dnf5 copr enable`
+without an explicit chroot autodetects one from the base's `os-release`.
+Hummingbird reports `VERSION_ID="20251124"`, which yields a chroot no COPR
+carries. The command **exits zero, writes no repo file, and installs nothing** —
+the failure surfaces later as `No match for argument: hyprland`. The
+Containerfile sets `ENV COPR_CHROOT` for this reason; a base whose `os-release`
+reports a real Fedora release does not need it.
 
 Then add to your image:
 

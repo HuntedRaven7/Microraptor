@@ -105,8 +105,11 @@ base_provides() {
 	# A base that does not ship the plugin package fails at the first one of
 	# these with "Unknown argument", and that is a RUN block, so the build dies
 	# before it can report anything useful.
+	# Matched on the package name, not on the exact command: the install goes
+	# through dnf5_retry, so the line reads `dnf5_retry 8 install -y ...`.
 	local plugins_line config_line
-	plugins_line="$(grep -n 'dnf5 install -y dnf5-plugins' "${CONTAINERFILE}" | head -n1 | cut -d: -f1)"
+	plugins_line="$(grep -n 'dnf5-plugins' "${CONTAINERFILE}" |
+		grep 'install' | head -n1 | cut -d: -f1)"
 	config_line="$(grep -n 'dnf5 config-manager setopt' "${CONTAINERFILE}" | head -n1 | cut -d: -f1)"
 	[ -n "${plugins_line}" ]
 	[ -n "${config_line}" ]
