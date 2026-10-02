@@ -162,6 +162,34 @@ dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
 
 echo "::endgroup::"
 
+echo "::group:: Generate the system locale"
+
+# This base carries no locale at all. `locale -a` returns exactly three entries --
+# C, C.utf8 and POSIX -- which glibc always provides and which need no data files.
+#
+# The symptom is not a missing feature, it is a warning on every shell:
+#
+#   bash: warning: setlocale: LC_CTYPE: cannot change locale (en_US.UTF-8): No such file or directory
+#
+# repeated per shell per variable, because something requests en_US.UTF-8 and
+# glibc has no definition for it. That something is usually the user's own
+# configuration -- a dotfiles repository setting LANG, or a session inherited
+# environment -- which is why it does not reproduce in `podman run` on a build
+# machine with no LANG set. The image is at fault either way: it offers a
+# configuration that does not work and then complains every time it is used.
+#
+# glibc-langpack-en rather than the whole set of 70-odd langpacks: 6 MB and one
+# package, and it is what makes the overwhelmingly common en_US.UTF-8 request
+# resolve. Anyone wanting another language adds its langpack by name --
+# glibc-langpack-de, -fr, -ja and so on all follow the same pattern.
+#
+# LANG is deliberately NOT set here. The image ships no locale.conf and no LANG,
+# which leaves that a policy choice for the user and their dotfiles; supplying
+# the data without dictating the choice is the part that belongs in a build.
+dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y glibc-langpack-en
+
+echo "::endgroup::"
+
 echo "::group:: Wire bash completions into non-login shells"
 
 # The package itself, installed here rather than in an earlier group because this
@@ -357,6 +385,18 @@ if [[ "${completion_count}" -lt 50 ]]; then
 	exit 1
 fi
 echo "bash completions: ${completion_count} registered"
+
+# The locale has to be *generated*, not merely installed -- a langpack that is
+# present but unbuilt leaves `locale -a` just as empty and the warning just as
+# loud. Checked with the exact spelling bash reports missing, because
+# `en_US.UTF-8` and `en_US.utf8` are the same locale under two names and only one
+# of them is what a caller will ask for.
+if ! locale -a 2>/dev/null | grep -qix 'en_US.utf8'; then
+	echo "::error::en_US.UTF-8 is still not available; shells will warn on every start" >&2
+	echo "::error::check whether glibc-langpack-en installed and whether localedef ran" >&2
+	exit 1
+fi
+echo "locale: $(locale -a 2>/dev/null | wc -l) available, en_US.UTF-8 among them"
 
 # And the hook is reachable from a non-login interactive shell, which is the
 # whole point of the /etc/bashrc wiring above. Simulated rather than asserted

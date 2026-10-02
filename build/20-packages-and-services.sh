@@ -82,17 +82,20 @@ echo "::endgroup::"
 # Sources, and why each one:
 #
 #   mangowm   Terra, 0.17.5-3.fc44. Not in Fedora 44.
+#   quickshell lionheartp/Hyprland COPR. Fedora 44 has 0.2.1; the COPR has 0.3.1.
+#              The COPR version is what current shell configs target, so it wins.
 #   sddm      Fedora 44 proper. No third-party repository needed.
 #   tailscale Fedora 44 proper. No third-party repository needed.
 #   ghostty   Terra, via packages/terra.repo.
 #   pipewire  Fedora 44 proper. See the note below on why it is listed.
 #
-# This was Hyprland and Quickshell for one commit. Both came from the
-# lionheartp/Hyprland COPR, which is also where MangoWM is published -- but Terra
-# carries it too, and taking it from Terra means this image needs no third-party
-# COPR at all. Quickshell went with the swap: it is the shell Hyprland's
-# ecosystem is built around, and MangoWM has no equivalent role for it. Nothing
-# else in the image depends on it.
+# This was Hyprland and Quickshell for one commit, both from the same COPR, and
+# only the compositor moved -- to Terra, which also carries MangoWM. Quickshell
+# stayed on the COPR and is still the point: it is a Qt/QML toolkit for building
+# bars, widgets, notifications and lock screens, and it is what the MangoWM
+# ecosystem is actually built on. Kamalen Shell and Caelestia are both Quickshell
+# configurations written for MangoWM, so shipping the compositor without the
+# toolkit leaves the user with a barless session and no obvious way to add one.
 #
 # Steam is deliberately absent. It is in Terra and it does install, but it pulls
 # 32-bit libraries that need Fedora's openssl-libs, and Hummingbird pins its own
@@ -108,7 +111,28 @@ echo "::endgroup::"
 # is not going to quietly absorb that.
 ###############################################################################
 
+echo "::group:: Install Quickshell"
 
+# Quickshell is the toolkit MangoWM's shell ecosystem is built on, and it comes
+# from the same COPR the compositor used to come from. It stayed when the
+# compositor moved to Terra.
+#
+# Removed for one commit on the reasoning that Quickshell belonged to Hyprland
+# and had no role under MangoWM. That was wrong, and it was an assumption rather
+# than a check: Quickshell is compositor-agnostic and is used with Niri and
+# MangoWC as much as with Hyprland, and the well-known shells for this compositor
+# -- Kamalen, Caelestia -- are Quickshell configurations. A build phase should not
+# be where that gets decided by guesswork.
+#
+# copr_install_isolated rather than a bare `dnf5 copr enable`: it disables the
+# COPR again immediately, so no third-party repo file ships enabled. The
+# Containerfile's COPR_CHROOT is what makes the enable succeed here -- without it
+# dnf5 autodetects a chroot from os-release, gets hummingbird-20251124-x86_64,
+# writes no repo file at all, and the install below fails with "No match for
+# argument: quickshell".
+copr_install_isolated "lionheartp/Hyprland" quickshell
+
+echo "::endgroup::"
 
 echo "::group:: Install the audio stack"
 
@@ -132,7 +156,6 @@ dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
 	wireplumber \
 	xdg-desktop-portal \
 	xdg-desktop-portal-gtk
-        NetworkManager-config-connectivity-fedora \
 	NetworkManager-wifi \
 	wpa_supplicant \
 	wireless-regdb \
