@@ -157,8 +157,6 @@ dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
 	xdg-desktop-portal \
 	wireless-regdb \
 	wlr-randr
-	linux-firmware \
-	iw
 
 echo "::endgroup::"
 
