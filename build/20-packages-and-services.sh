@@ -155,8 +155,6 @@ dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
 	pipewire-utils \
 	wireplumber \
 	xdg-desktop-portal \
-	xdg-desktop-portal-gtk
-	wpa_supplicant \
 	wireless-regdb \
 	ModemManager \
 	bind-utils \
