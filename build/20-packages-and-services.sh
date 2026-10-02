@@ -156,6 +156,7 @@ dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
 	wireplumber \
 	xdg-desktop-portal \
 	wireless-regdb \
+	wlr-randr
 	ModemManager \
 	bind-utils \
 	iptables-nft \
