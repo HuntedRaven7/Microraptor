@@ -305,5 +305,48 @@ systemctl enable uupd-resume.timer
 
 echo "::endgroup::"
 
+# Close the Utah package factory now that this phase is the last thing in the
+# build that needs it.
+#
+# utah.repo is copied to /etc/yum.repos.d enabled=1 and points at
+# file:///etc/utah-packages, a path that exists only while the factory image is
+# bind mounted there. That mount is on three steps -- the package-sources phase,
+# 10-overlay.sh and this one -- and not on the phases that follow. So leaving the
+# repository enabled makes every later dnf5 call fail to fetch its metadata:
+#
+#   Failed to download metadata (baseurl: "file:///etc/utah-packages") for
+#   repository "utah-packages": Usable URL not found
+#
+# dnf5 reports that as a warning and carries on, so it does not always stop the
+# build, which is what makes it worth closing rather than ignoring: 40-nvidia.sh
+# retries `makecache --refresh` eight times against a path that is not there and
+# burns a minute and a half before continuing.
+#
+# The flip belongs at the end of this phase rather than after the Utah group,
+# because two more dnf5 transactions follow the group -- SDDM/Tailscale and
+# Ghostty/MangoWM -- and those run while the factory is still mounted.
+#
+# packages/utah.repo says this step used to be 90-cleanup.sh. That was correct
+# when this phase was the last one that installed anything; it stopped being true
+# when the hardware, kernel and NVIDIA phases were added after it. Closing it
+# here puts it immediately after the last use instead of trusting the order of
+# phases that run dnf5.
+#
+# Guarded, because the file is copied in by the Containerfile and must be there,
+# and failing the build when it is not is better than a silently live repository.
+if [[ -f /etc/yum.repos.d/utah.repo ]]; then
+	sed -i 's/^enabled=1$/enabled=0/' /etc/yum.repos.d/utah.repo
+	echo "::group:: Finalise the Utah package factory"
+	if grep -qE '^enabled=1' /etc/yum.repos.d/utah.repo; then
+		echo "::error::utah-packages is still enabled in /etc/yum.repos.d/utah.repo" >&2
+		exit 1
+	fi
+	echo "utah-packages: enabled=0 (the factory mount does not survive this phase)"
+	echo "::endgroup::"
+else
+	echo "::error::/etc/yum.repos.d/utah.repo is missing; cannot close the package factory" >&2
+	exit 1
+fi
+
 # Restore default glob behavior
 shopt -u nullglob

@@ -66,6 +66,13 @@ third_party_repo_files=(
 	# below is what would catch a future change that did write it.
 	"${REPOS_DIR}"/negativo17-fedora-nvidia*.repo
 	"${REPOS_DIR}"/nvidia-container-toolkit.repo
+	# The package factory. 20-packages-and-services.sh closes this at the end of
+	# its own phase, immediately after the last use, because the factory's
+	# /etc/utah-packages path only exists while the image is bind mounted there.
+	# Listed here as well so the assertion below still catches it: the two are
+	# belt and braces around a repository whose baseurl is a path that will not
+	# exist on an installed system.
+	"${REPOS_DIR}"/utah.repo
 )
 
 for repo_file in "${third_party_repo_files[@]}"; do
