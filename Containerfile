@@ -188,6 +188,7 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
 ## since that retries one request against one mirror and a mirror answering 404
 ## has nothing to retry. build/dnf5-retry.sh carries the full reasoning.
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=bind,from=packages,source=/repository,target=/etc/utah-packages,ro \
     --mount=type=cache,dst=/var/cache/libdnf5 \
     --mount=type=tmpfs,dst=/boot \
     --mount=type=tmpfs,dst=/tmp \
@@ -215,6 +216,7 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
 ## This phase installs no packages; see the package phase below.
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache/libdnf5 \
+    --mount=type=bind,from=packages,source=/repository,target=/etc/utah-packages,ro \
     --mount=type=cache,dst=/var/cache/rpm-ostree \
     --mount=type=tmpfs,dst=/boot \
     --mount=type=tmpfs,dst=/tmp \

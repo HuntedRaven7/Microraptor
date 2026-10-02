@@ -174,6 +174,7 @@ echo "::group:: Install the Utah package stack"
 # argument list, which keeps the install one transaction.
 utah_packages=(
 	NetworkManager-config-connectivity-fedora
+	niri
 	NetworkManager-wifi
 	NetworkManager-wwan
 	wpa_supplicant
