@@ -31,6 +31,65 @@ these customizations.
 - The **OGC kernel** (`7.2.8-ogc1.1.fc44`) and the **NVIDIA open kernel module**,
   from `ublue-os/akmods` — see [Kernel and GPU](#kernel-and-gpu)
 
+Also installed, in `build/25-hardware-and-session.sh`:
+
+- `NetworkManager-wifi`, `wpa_supplicant`, `iw` — WiFi
+- `iwlwifi-{mvm,mld,dvm}-firmware` — Intel WiFi firmware, ~147 MB
+- `bluez`, `bluez-tools` — Bluetooth
+- `lxpolkit` — the password-prompt agent
+- `gvfs`, `gvfs-mtp` — file manager and phone access
+- `xdg-utils`, `xdg-user-dirs` — file type handling and `~/Documents`
+- `power-profiles-daemon`, `upower`, `fwupd` — laptop power, battery, firmware
+  updates
+- `bash-completion` — see [Completions](#completions)
+
+### WiFi firmware
+
+**The base already has `linux-firmware` installed and it contains no WiFi
+firmware.** That package is 1848 files and exactly one of them mentions
+iwlwifi — the licence. In Fedora 44 the vendor blobs are separate packages and
+none was pulled in, so the adapter is visible in hardware and never associates.
+This is the single most surprising thing about adding WiFi to this base, and the
+reason the firmware assertion in the build checks for blobs on disk rather than
+for the package being installed.
+
+All three Intel packages are installed, not one, because which applies depends
+on the card and a wrong guess means no network with no error message:
+
+| Package | Size | Covers |
+|---|---|---|
+| `iwlwifi-mvm-firmware` | 98 MB | modern Intel — AX200/AX210/AX300, BE, 6E |
+| `iwlwifi-mld-firmware` | 35 MB | the MLD variants (AX210+, BE200) |
+| `iwlwifi-dvm-firmware` | 14 MB | legacy cards predating the mvm driver |
+
+For other hardware, one line changes: `realtek-firmware` (7 MB),
+`brcmfmac-firmware` (10 MB) for Broadcom, or `mediatek-firmware` (5 MB).
+
+`NetworkManager-wifi` ships **no systemd unit** — NetworkManager loads the plugin
+itself — so there is nothing to enable. The phase checks each unit exists before
+enabling it, because `systemctl enable` on a unit that is not installed fails the
+build and the set of units moves between releases.
+
+### Completions
+
+`bash-completion` is installed and its hook is wired into `/etc/bashrc`, not
+left where the package puts it.
+
+The package's own hook is `/etc/profile.d/bash_completion.sh`, and only a **login
+shell** reads `/etc/profile`. A terminal emulator starts a non-login interactive
+shell, which reads `~/.bashrc` and nothing else. So the package on its own gives
+you an image where completions work over `ssh` and are missing in every window on
+the desktop. `/etc/skel/.bashrc` sources `/etc/bashrc` on the way in, so one
+guarded block there covers every interactive shell for every new account and for
+root — 131 completions, verified in the build.
+
+The block is **appended** with a marker, never written through `custom/files/`:
+that would freeze the distro's `bashrc` for the life of the image and silently
+lose every future fix to it.
+
+If you manage `~/.bashrc` with chezmoi, keep the `/etc/bashrc` line or source it
+from your own — otherwise your dotfiles replace the skel that pulls it in.
+
 ### Kernel and GPU
 
 The base ships Hummingbird's `7.2.7-200.fc44` kernel. This image replaces it with

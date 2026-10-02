@@ -30,6 +30,10 @@ CI runs the same checks; running them locally only makes the pull request quiet.
 | `Librepo error: Cannot download ...: All mirrors were tried` on a package that exists | the Fedora CDN is returning 404 for a fraction of requests, including for URLs it just served | **not** a missing package. Probe the exact URL in the log twice or three times before believing it. `dnf5_retry` exists for this; if a whole window of attempts fails, the window was sustained and the count is too low |
 | `reading manifest <digest>: manifest unknown` | the digest was taken from a manifest list rather than resolved for the platform | `skopeo inspect docker://<image>:<tag> --format '{{.Digest}}'`, then confirm with `skopeo inspect --raw docker://<image>@<digest>` |
 | `dnf5 makecache` succeeds but the install still 404s | `makecache` warms metadata, not packages | expected; the flake is in the `.rpm` download, so only retrying the whole transaction helps |
+| bash completions work over `ssh` but not in a desktop terminal | `bash-completion`'s hook is in `profile.d`, which only **login** shells read; a terminal starts a non-login interactive shell reading `~/.bashrc` | wire the hook into `/etc/bashrc`, which `/etc/skel/.bashrc` already sources. Append with a marker — never ship the whole file through `custom/files/` |
+| WiFi adapter is detected but never associates | the base's `linux-firmware` contains no vendor blobs | install the per-vendor firmware package. Assert blobs on disk, not the package: `linux-firmware` installs cleanly and has none |
+| `bash -c 'PS1=x; …'` reports zero of something | bash unsets `PS1` in a non-interactive shell even when exported | assign `PS1` *inside* the child: `bash -c 'PS1="$ "; …'`. Otherwise a guard you wrote skips itself and reports a working image as broken |
+| `systemctl enable` fails on a unit you expected to exist | the package ships no unit — NetworkManager loads plugins itself | check `systemctl list-unit-files` first; do not hard-code the name |
 
 ## CI
 

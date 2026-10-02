@@ -226,6 +226,20 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=tmpfs,dst=/tmp \
     /ctx/build/20-packages-and-services.sh
 
+### HARDWARE AND SESSION
+## WiFi and its firmware, Bluetooth, the polkit agent, file and mount access,
+## laptop power and firmware management, and the bash completion wiring.
+##
+## After the desktop packages because it is a separate concern with a separate
+## kind of justification, and before the kernel phase because the firmware
+## packages land in the same transaction sequence as everything else.
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=cache,dst=/var/cache/libdnf5 \
+    --mount=type=cache,dst=/var/cache/rpm-ostree \
+    --mount=type=tmpfs,dst=/boot \
+    --mount=type=tmpfs,dst=/tmp \
+    /ctx/build/25-hardware-and-session.sh
+
 ### OGC KERNEL
 ## Swaps Hummingbird's kernel for the Open Gaming Collective build the akmods
 ## kmods are compiled against. Bind mounted rather than copied: the bundle is
