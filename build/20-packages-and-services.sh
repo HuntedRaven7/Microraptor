@@ -156,12 +156,9 @@ dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
 	wireplumber \
 	xdg-desktop-portal \
 	xdg-desktop-portal-gtk
-	NetworkManager-wifi \
 	wpa_supplicant \
 	wireless-regdb \
 	ModemManager \
-	NetworkManager-wwan \
-	NetworkManager-bluetooth \
 	bind-utils \
 	iptables-nft \
 	linux-firmware \
