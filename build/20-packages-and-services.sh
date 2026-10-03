@@ -5,10 +5,7 @@ set -euo pipefail
 
 echo "::group:: Install Ghostty from Terra"
 
-# Terra was installed and enabled by the Containerfile's package sources phase,
-# so it is live here without a per-step --enablerepo. 90-cleanup.sh closes it,
-# along with fedora.repo, before the image is committed.
-dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y ghostty 
+dnf5 install -y ghostty steam
 
 echo "::endgroup::"
 
