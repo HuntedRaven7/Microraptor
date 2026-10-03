@@ -136,7 +136,7 @@ COPY --from=shim-build /out /out
 # Renovate keeps the digest pin below up to date. Do not drop the digest or add
 # trailing whitespace: `just build` parses this line for the base tag and the
 # base image name, and a malformed line makes it exit rather than guess.
-FROM quay.io/hummingbird-community/bootc-os:latest@sha256:55d7a23a804878b4096aae0e8840445a6a8acf4dba33d1b9a8260e808407e04f
+FROM ghcr.io/projectbluefin/utah:testing
 
 # Image identity - these define how bootc, fastfetch, and the ublue ecosystem
 # recognize your image. Change these to match your project name.
@@ -169,11 +169,6 @@ ENV COPR_CHROOT="fedora-44-x86_64"
 ## Scripts run in the order of the RUN blocks below: image identity, runtime
 ## overlays, default packages and services, then cleanup. An activated example
 ## gets its own block between the package phase and the cleanup phase.
-
-RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
-    --mount=type=tmpfs,dst=/boot \
-    --mount=type=tmpfs,dst=/tmp \
-    /ctx/build/00-image-info.sh
 
 ### PACKAGE SOURCES
 ## Hummingbird ships only its own repository, so dnf5 needs both the Fedora
