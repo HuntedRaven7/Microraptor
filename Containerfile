@@ -136,7 +136,7 @@ COPY --from=shim-build /out /out
 # Renovate keeps the digest pin below up to date. Do not drop the digest or add
 # trailing whitespace: `just build` parses this line for the base tag and the
 # base image name, and a malformed line makes it exit rather than guess.
-FROM ghcr.io/projectbluefin/utah:testing
+FROM ghcr.io/projectbluefin/utah:testing@sha256:215a5ab9d90140f5486b56d3fc1162293743102930edb0afde3943648a992252
 
 # Image identity - these define how bootc, fastfetch, and the ublue ecosystem
 # recognize your image. Change these to match your project name.
