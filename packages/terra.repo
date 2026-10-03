@@ -1,0 +1,25 @@
+# Terra, the community repository for Fedora.
+#
+# The baseurl is repos.fyralabs.com, not terra.malduck.org -- that host does not
+# resolve (NXDOMAIN), and terraproject.org resolves but serves no repository at
+# that path. Ghostty's own install instructions point at fyralabs, so that is
+# what this follows.
+#
+# $releasever is spelled as the literal 44 rather than $releasever: this base's
+# os-release reports VERSION_ID="20251124", so $releasever would expand to a
+# build date and produce a 404. The Fedora major this image targets is declared
+# as ARG FEDORA_MAJOR_VERSION in the Containerfile, and the two must move
+# together.
+#
+# gpgcheck=0 because Terra publishes no repository key at a stable URL:
+# RPM-GPG-KEY-terra 404s at the repo root, and terra-release -- the package
+# that would carry the key -- is itself only inside this repository. That is a
+# bootstrap cycle, so there is nothing to verify against on first enable. This
+# is the one repository in the image with signature checking off; everything
+# else is gpgcheck=1. Revisit if Terra publishes a key at a fixed URL.
+[terra]
+name=Terra
+baseurl=https://repos.fyralabs.com/terra44
+enabled=1
+gpgcheck=0
+repo_gpgcheck=0

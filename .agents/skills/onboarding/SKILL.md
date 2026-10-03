@@ -31,6 +31,18 @@ before. Substitute your own `{owner}/{repo}` throughout.
 See the Quick start in [README.md](../../../README.md#quick-start). Three identity
 sites, and `just test-contract` fails when they disagree.
 
+**Use the repository name in lowercase.** A repository name may carry capitals,
+but the published image reference may not: podman rejects
+`Error: tag MyImage:stable: invalid reference format: repository name must be
+lowercase`, and `just build` passes `IMAGE_NAME` straight through to a tag. CI
+does not hit this, because `build-image.yml` lowercases the event payload
+(`IMAGE_NAME,,`) before it reaches the build — so a capitalised name produces a
+green CI run and a local build that cannot start. `microraptor` is the name, not
+`Microraptor`.
+
+Do the rename before step 6. `stable` is created from `main`, so a repository
+renamed afterwards has a `stable` branch carrying the old name's history.
+
 ## 2. Enable Actions
 
 Without this no workflow runs at all, including the first build.
@@ -48,6 +60,13 @@ Without this no workflow runs at all, including the first build.
 
 Renovate merges low-risk updates on its own, and it cannot without this.
 
+> Renovate can also arrive as the **Renovate GitHub App** rather than as a token.
+> When the App is installed, `app/renovate` opens the pull requests and
+> `gh secret list` shows no `RENOVATE_TOKEN` — step 5 is then already satisfied,
+> and the token job in `renovate.yml` logs "skipping Renovate" while the App
+> keeps working. Check which one you have before treating an empty secret list as
+> a failure: `gh pr list --author app/renovate` answers it.
+
 - **`gh`** — `gh api -X PATCH repos/{owner}/{repo} -F allow_auto_merge=true`
 - **By hand:**
   1. In your repository, click **Settings**.
@@ -64,7 +83,15 @@ Two settings on one screen. The first lets workflows write — push images, open
 pull requests. The second is what lets the promotion workflow approve the check
 runs GitHub holds for its own pull request.
 
-- **`gh`** — `gh api -X PUT repos/{owner}/{repo}/actions/permissions/workflow -f default_workflow_permissions=write -f can_approve_pull_request_reviews=true`
+- **`gh`** — `gh api -X PUT repos/{owner}/{repo}/actions/permissions/workflow --input - <<'JSON'`
+  ```json
+  {"default_workflow_permissions": "write", "can_approve_pull_request_reviews": true}
+  ```
+  Use `--input`, not `-f`. `gh api`'s `-f` sends every value as a string, and
+  this endpoint rejects a string where it wants a boolean:
+  `Invalid property /can_approve_pull_request_reviews: `"true"` is not of type
+  `boolean`` (HTTP 422). `-F` parses booleans, and `--input` sends the JSON
+  verbatim; either works, `--input` is the one the API documents.
 - **By hand:**
   1. **Settings → Actions → General**.
   2. Scroll down to **Workflow permissions**.
@@ -251,6 +278,12 @@ Required:
 Optional: `area/ci`, `kind/bug`, `priority/p1` (all `ededed`), and GitHub's
 defaults.
 
+`--force` is what makes this step re-runnable, which matters more than it looks:
+the block is twelve `gh` calls with no transaction, so a failure at label seven
+leaves the repository half-labelled and the obvious fix is to retype the whole
+block. It is also the step most likely to be run twice, since a fresh fork often
+inherits some of GitHub's defaults already.
+
 ## 11. Enable issues
 
 The issue templates in `.github/ISSUE_TEMPLATE/` only appear when issues are on.
@@ -278,9 +311,16 @@ gh secret list --repo {owner}/{repo}
 ```
 
 Done when `main` and `stable` both exist and both require `validate`, the squash
-ruleset is active, `RENOVATE_TOKEN` is set, and a push to `main` that changes
-more than documentation produces a green `Build and Push Image` run and a
-`:stable-testing` image. Documentation-only pushes are skipped by `paths-ignore`.
+ruleset is active, `RENOVATE_TOKEN` is set (or the Renovate App is installed),
+and a push to `main` that changes more than documentation produces a green
+`Build and Push Image` run and a `:stable-testing` image. Documentation-only
+pushes are skipped by `paths-ignore`.
+
+The one check above that does not cover the repository's own name: verify by hand
+that `just build` starts. CI derives its image name from the event payload, so a
+`Containerfile`, `Justfile` or `artifacthub-repo.yml` that disagrees with the
+repository name, or that carries a capital the published reference may not,
+produces a green CI run and a local build that cannot tag anything.
 
 ## Failure modes
 
@@ -296,3 +336,9 @@ more than documentation produces a green `Build and Push Image` run and a
   merge queue needs an organization, so enrollment is off.
 - **The release gate reports `release/blocked`** — the labels in step 10 are
   missing, or the candidate image is unsigned.
+- **`gh api` returns 422 on the workflow permissions** — `-f` sent a string where
+  the endpoint wants a boolean; use `--input` (step 4).
+- **Renovate's PRs come from `app/renovate` and no secret is listed** — the App
+  is installed and working. Step 5 does not apply.
+- **`just build` fails with `repository name must be lowercase`** — the identity
+  carries a capital that CI silently lowercases (step 1).

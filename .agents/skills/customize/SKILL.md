@@ -12,7 +12,7 @@ description: >-
 
 | The thing is… | Put it in | Installed |
 |---|---|---|
-| A system package the image needs to boot or run | `build/20-packages-and-services.sh` | at build time |
+| A system package the image needs to boot or run | a `build/NN-*.sh` phase | at build time |
 | A CLI tool a user chooses to have | `custom/brew/*.Brewfile` | on demand, by the user |
 | A GUI application | `custom/flatpaks/*.preinstall` | on first boot |
 | A command that configures the system | `custom/ujust/*.just` | available from first login |
@@ -21,6 +21,26 @@ description: >-
 
 The dividing line is who decides and when: build time for what the image must
 have, runtime for what the user chooses.
+
+**Check the default Brewfile before adding a CLI tool.** If it is already
+there, the build is the second copy at a second version.
+
+## Which build phase
+
+`build/` is numbered, and each phase owns one concern. [build/README.md](../../../build/README.md)
+has the current map. Add to an existing phase when the justification is the same
+kind of thing; add a new one when it is not.
+
+`20-packages-and-services.sh` is "what the image **is**" — the desktop, the
+compositor, the display manager, the update daemon. `25-hardware-and-session.sh`
+is "what the image needs in order to **function**", and the reasoning there is
+per-package: why the WiFi firmware is 147 MB, why `NetworkManager-wifi` has no
+unit to enable, why the bash completion hook is in `/etc/bashrc`. `30-`/`40-` are
+the kernel and GPU driver, which are reversible as a pair.
+
+The test for a new phase is whether a reader asking "why is this here?" gets a
+different answer than they would for the existing ones. If not, it belongs in
+one of them.
 
 ## By destination
 

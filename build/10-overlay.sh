@@ -35,24 +35,6 @@ set -euo pipefail
 
 shopt -s nullglob
 
-echo "::group:: Overlay shared Common runtime files"
-
-# Shared runtime substrate: the ujust entry point and wrapper, first-boot setup
-# hooks, container trust policy, and the Flatpak/Brew declarations these
-# services consume.
-#
-# /etc/containers/policy.json arrives here, and the template deliberately takes
-# it unmodified. Its sigstore scopes cover ghcr.io/ublue-os and
-# quay.io/toolbx-images; this image's own namespace matches the `""` catch-all
-# (insecureAcceptAnything), which is why 00-image-info.sh writes an unverified
-# update transport. Merging a scope for this namespace — with jq, never by
-# forking the file through custom/files, which would freeze every inherited
-# scope — is only worth doing once the image is signed with a key the policy
-# can name; a keyless GitHub Actions identity is unmatchable here.
-rsync -rvK /ctx/oci/common/shared/ /
-
-echo "::endgroup::"
-
 echo "::group:: Overlay Brew integration files"
 
 # Brew supplies the Homebrew mechanism (archive, systemd units, shell
@@ -122,20 +104,6 @@ curl --fail --retry 3 --silent --show-error \
 echo "::endgroup::"
 
 echo "::group:: Enable runtime services"
-
-# Units the overlays above provide. Enabling them here is what makes the Brew
-# and Flatpak declarations take effect, and it matches how Bluefin's cleanup
-# phase wires the same shared services.
-systemctl enable brew-setup.service
-systemctl enable brew-update.timer
-systemctl enable brew-upgrade.timer
-systemctl --global enable brew-preinstall.service
-systemctl enable flatpak-preinstall.service
-systemctl enable flatpak-appstream-refresh.service
-
-# First-boot setup framework.
-systemctl enable ublue-system-setup.service
-systemctl --global enable ublue-user-setup.service
 
 # Rootless container management for the reference image.
 systemctl enable podman.socket
