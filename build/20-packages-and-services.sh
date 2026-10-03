@@ -301,11 +301,6 @@ done
 # is enough; the daemon starts on first use.
 systemctl enable tailscaled.service
 
-# Update policy, enabled here rather than in the uupd group above so that every
-# service this image owns is enabled in one place.
-systemctl enable uupd.timer
-systemctl enable uupd-resume.timer
-
 echo "::endgroup::"
 
 # Close the Utah package factory now that this phase is the last thing in the
