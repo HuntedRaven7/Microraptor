@@ -154,6 +154,7 @@ dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
 	wireplumber \
 	xdg-desktop-portal \
 	wireless-regdb \
+	nautilus \
 	wlr-randr
 
 echo "::endgroup::"
