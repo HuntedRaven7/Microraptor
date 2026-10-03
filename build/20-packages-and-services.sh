@@ -202,6 +202,8 @@ utah_packages=(
 	mesa-libgbm
 	git
 	nautilus
+	grim
+	slurp
 	pavucontrol
 	rofi
 	mesa-vulkan-drivers
