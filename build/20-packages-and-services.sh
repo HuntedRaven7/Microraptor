@@ -203,6 +203,7 @@ utah_packages=(
 	git
 	nautilus
 	grim
+	gcc
 	slurp
 	pavucontrol
 	rofi
