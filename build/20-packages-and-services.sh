@@ -200,6 +200,9 @@ utah_packages=(
 	mesa-libEGL
 	mesa-libGL
 	mesa-libgbm
+	git
+	pavucontrol
+	rofi
 	mesa-vulkan-drivers
 	alsa-ucm
 	alsa-utils
