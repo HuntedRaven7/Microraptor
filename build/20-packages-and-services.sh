@@ -83,7 +83,6 @@ echo "::endgroup::"
 #
 #   quickshell lionheartp/Hyprland COPR. Fedora 44 has 0.2.1; the COPR has 0.3.1.
 #              The COPR version is what current shell configs target, so it wins.
-#   sddm      Fedora 44 proper. No third-party repository needed.
 #   tailscale Fedora 44 proper. No third-party repository needed.
 #   ghostty   Terra, via packages/terra.repo.
 #   pipewire  Fedora 44 proper. See the note below on why it is listed.
@@ -155,7 +154,6 @@ dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
 	wireplumber \
 	xdg-desktop-portal \
 	wireless-regdb \
-	sddm \
 	wlr-randr
 
 echo "::endgroup::"
@@ -206,6 +204,7 @@ utah_packages=(
 	alsa-ucm
 	alsa-utils
 	pipewire-alsa
+	gdm
 	pipewire-utils
 	wireplumber
 	xdg-desktop-portal
@@ -278,7 +277,7 @@ echo "::group:: Enable desktop services"
 # arrangement. It has no session to offer until the user supplies a MangoWM
 # configuration, which is expected: this image ships the compositor, not a
 # desktop.
-systemctl enable sddm.service
+systemctl enable gdm.service
 
 enable_unit bluetooth.service
 enable_unit systemd-resolved.service
