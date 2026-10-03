@@ -62,7 +62,7 @@ ARG PACKAGE_IMAGE_SHA=sha256:0f04cff2dd0b085604ff3cd79d538ab14b97cbe356980f7d365
 FROM ghcr.io/projectbluefin/utah-packages@sha256:7a2a67087cac466c3bd42ab47626bfe9303227806895920edce65c0563bf1555 AS packages
 
 FROM ghcr.io/projectbluefin/common:latest@sha256:b7e3487cafe8b21e10bb514f218406548f4c1abef5e444963094cbf2ec60e4b1 AS common
-FROM ghcr.io/ublue-os/brew:latest@sha256:e9a72571b7644b6277f0638b6a3c5e497e265e1098ab91224567acbdeb8b74ea AS brew
+FROM ghcr.io/ublue-os/brew:latest@sha256:bc6f5a9fc4f28cded2fe567b31f74825c1f4481d5e43c537c3fcc0d3df6d22ab AS brew
 
 
 # OGC kernel RPMs and the NVIDIA open kmod, from ublue-os/akmods.
