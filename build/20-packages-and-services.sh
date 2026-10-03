@@ -9,8 +9,6 @@ dnf5 install -y ghostty steam
 
 echo "::endgroup::"
 
-<<<<<<< HEAD
-=======
 echo "::group:: Install uupd"
 
 # uupd owns the update policy. Its binary comes from the ublue-os/packages
@@ -284,7 +282,6 @@ echo "::endgroup::"
 #
 # Guarded, because the file is copied in by the Containerfile and must be there,
 # and failing the build when it is not is better than a silently live repository.
->>>>>>> parent of 6e8afc7 (feat: Add git, pavucontrol, and rofi to package list)
 if [[ -f /etc/yum.repos.d/utah.repo ]]; then
 	sed -i 's/^enabled=1$/enabled=0/' /etc/yum.repos.d/utah.repo
 	echo "::group:: Finalise the Utah package factory"
