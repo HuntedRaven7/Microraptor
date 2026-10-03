@@ -128,7 +128,7 @@ echo "::group:: Install Quickshell and Hyprland"
 # dnf5 autodetects a chroot from os-release, gets hummingbird-20251124-x86_64,
 # writes no repo file at all, and the install below fails with "No match for
 # argument: quickshell".
-copr_install_isolated "lionheartp/Hyprland" quickshell hyprland
+copr_install_isolated "lionheartp/Hyprland" quickshell 
 
 echo "::endgroup::"
 
@@ -201,6 +201,7 @@ utah_packages=(
 	mesa-libGL
 	mesa-libgbm
 	git
+	nautilus
 	pavucontrol
 	rofi
 	mesa-vulkan-drivers
@@ -266,7 +267,7 @@ echo "::group:: Install Ghostty and MangoWM from Terra"
 # Terra was installed and enabled by the Containerfile's package sources phase,
 # so it is live here without a per-step --enablerepo. 90-cleanup.sh closes it,
 # along with fedora.repo, before the image is committed.
-dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y ghostty 
+dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y ghostty mangowm
 
 echo "::endgroup::"
 
