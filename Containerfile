@@ -103,7 +103,7 @@ FROM ghcr.io/ublue-os/akmods-nvidia-open:ogc-44@sha256:69a09c2f39c333565e93726c4
 # but Fedora 44 is where rpm-build is exercised most heavily, so it is the base
 # whose packaging behaviour is least likely to surprise. Nothing from this stage
 # reaches the image except the one small RPM.
-FROM docker.io/library/fedora:44@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80 AS shim-build
+FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41 AS shim-build
 # Self-contained apart from the one script below: the kernel version it needs
 # comes from the same akmods bundle the runtime phases use, so the shim cannot
 # describe a kernel other than the one being installed. It needs no repo
