@@ -147,7 +147,6 @@ echo "::group:: Install the audio stack"
 #
 # pipewire-alsa is the ALSA compatibility layer, so ordinary desktop apps that
 # only speak ALSA still produce sound.
-dnf install -y @kde-desktop-environment
 dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
 	pipewire \
 	pipewire-alsa \
@@ -285,7 +284,7 @@ echo "::group:: Enable desktop services"
 # arrangement. It has no session to offer until the user supplies a MangoWM
 # configuration, which is expected: this image ships the compositor, not a
 # desktop.
-#systemctl enable gdm.service
+systemctl enable gdm.service
 
 enable_unit bluetooth.service
 enable_unit systemd-resolved.service
