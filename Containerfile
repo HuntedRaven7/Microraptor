@@ -1,124 +1,8 @@
-###############################################################################
-# PROJECT NAME CONFIGURATION
-###############################################################################
-# Name: microraptor
-#
-# The authoritative name at publish time is the repository name: build-image.yml
-# derives IMAGE_NAME from ${{ github.event.repository.name }} and pushes the
-# GHCR package under it. This value is the fallback for local `just build` and
-# the image identity metadata.
-#
-# Two other files carry the name as a literal: the Justfile's IMAGE_NAME default
-# and artifacthub-repo.yml's repositoryID. tests/contract/identity_test.bats
-# fails when the three disagree. See "Quick start" in README.md.
-###############################################################################
-
-###############################################################################
-# MULTI-STAGE BUILD ARCHITECTURE
-###############################################################################
-# This Containerfile follows the Bluefin architecture pattern as implemented in
-# @projectbluefin/distroless. The architecture layers OCI containers together:
-#
-# 1. Context Stage (ctx) - Combines resources from:
-#    - Local build scripts and custom files
-#    - @projectbluefin/common - The shared desktop configuration and plumbing
-#    - @ublue-os/brew - Homebrew integration
-#
-# 2. Base Image Options (edit the FROM line below):
-#    - `quay.io/hummingbird-community/bootc-os` (Hummingbird, minimal, no desktop)
-#    - `quay.io/fedora-ostree-desktops/silverblue` (Fedora, GNOME desktop)
-#    - `quay.io/fedora-ostree-desktops/base-main` (Fedora, no desktop)
-#    - `quay.io/centos-bootc/centos-bootc:stream10` (CentOS-based)
-#
-# A base with no Fedora repository of its own needs packages/fedora.repo, which
-# this image's Containerfile installs. Hummingbird is the case that motivated
-# it; the Fedora desktop bases already enable fedora and fedora-updates.
-#
-# See: https://docs.projectbluefin.io/contributing/ for architecture diagram
-###############################################################################
-
-# OCI package factory. Carries a repository of prebuilt RPMs, bind mounted to
-# /etc/utah-packages and read as a file:// dnf5 source.
-#
-# The FROM is a literal reference, not ${ARG} interpolation, for the same reason
-# the akmods and common references are: Buildah does not substitute a global ARG
-# into a FROM line here. `FROM ${PACKAGE_IMAGE_REF}` -- with that name never
-# defined anywhere -- expanded to nothing, and Buildah then reported
-# "no FROM statement found" and failed with exit 125, pointing at the whole
-# Containerfile rather than at the one token that was wrong.
-#
-# Digest only, no tag. This digest is not what :latest currently resolves to
-# (:latest is sha256:5577d71e...), so a tag would assert a relationship that does
-# not hold. The digest is a single-platform manifest, pulls cleanly, and its root
-# holds exactly /repository -- which is the source path both bind mounts name.
-#
-# The ARGs below are the declared source of truth and the Renovate anchor; the
-# FROM, these, and the factory-pin stamp in packages/utah.repo are asserted to
-# agree by tests/contract/utah-packages_test.bats. Three copies of a digest with
-# no check between them is how the stamp and the reference drift apart.
-ARG PACKAGE_IMAGE=ghcr.io/projectbluefin/utah-packages
-ARG PACKAGE_IMAGE_SHA=sha256:0f04cff2dd0b085604ff3cd79d538ab14b97cbe356980f7d365a35dfc70c857b
-
 FROM ghcr.io/projectbluefin/utah-packages@sha256:7a2a67087cac466c3bd42ab47626bfe9303227806895920edce65c0563bf1555 AS packages
 
 FROM ghcr.io/projectbluefin/common:latest@sha256:b7e3487cafe8b21e10bb514f218406548f4c1abef5e444963094cbf2ec60e4b1 AS common
 FROM ghcr.io/ublue-os/brew:latest@sha256:bc6f5a9fc4f28cded2fe567b31f74825c1f4481d5e43c537c3fcc0d3df6d22ab AS brew
 
-
-# OGC kernel RPMs and the NVIDIA open kmod, from ublue-os/akmods.
-#
-# Two separate bundles, and they have to come from the same build. Each ships its
-# own copy of the kernel RPMs, and a kmod is compiled against one exact
-# kernel-version-release -- so pinning only the kmod would let the kernel move
-# under it. 30-kernel.sh and 40-nvidia.sh check the two versions against each
-# other and fail the build on a mismatch, which is why a bump cannot silently
-# produce an unbootable pair.
-#
-# Written as literal references rather than ${ARG} interpolation, like the
-# common and brew lines above. An ARG declared before the first FROM is a global
-# ARG, which Buildah does not substitute into a FROM line here: it reports the
-# ARG as a stage step and then fails with
-# `invalid base image specification "@"`. A literal reference also gives
-# Renovate a digest it can match directly.
-#
-# `nvidia-open` is the open kernel module, which covers RTX 20/30/40/50-series
-# and GTX 16-series. Older hardware needs akmods-nvidia (the closed module).
-FROM ghcr.io/ublue-os/akmods:ogc-44@sha256:76ede6f1663a5cc3d0eecc76f2ba6281f34543b7f65ee89170398b82bd3772b5 AS akmods-common
-FROM ghcr.io/ublue-os/akmods-nvidia-open:ogc-44@sha256:69a09c2f39c333565e93726c4d85cf84acffe2adfc2c611c92d541f13b17860b AS akmods-nvidia
-
-# Builds the kernel-uname-r shim in a stage that is thrown away.
-#
-# The kmod requires kernel-uname-r = <the OGC kernel>. That is a synthetic
-# provide: Fedora's kernel-core generates it in a scriptlet, the OGC kernel-core
-# has no such scriptlet, and nothing in the akmods bundle provides it. Without
-# this the kmod cannot resolve and 40-nvidia.sh fails.
-#
-# rpm-build is a 54-package dependency chain, so it is installed here and never
-# in the image. Building it in 40-nvidia.sh would mean gcc and binutils passing
-# through a layer of a runtime image -- the opposite of what this base is. The
-# result is copied out as a single small RPM and the toolchain disappears with
-# the stage.
-# Built on Fedora rather than on the image's own base. Both behave the same for
-# this spec -- the missing %install/%files problem below was not Hummingbird's --
-# but Fedora 44 is where rpm-build is exercised most heavily, so it is the base
-# whose packaging behaviour is least likely to surprise. Nothing from this stage
-# reaches the image except the one small RPM.
-FROM docker.io/library/fedora:44@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80 AS shim-build
-# Self-contained apart from the one script below: the kernel version it needs
-# comes from the same akmods bundle the runtime phases use, so the shim cannot
-# describe a kernel other than the one being installed. It needs no repo
-# definitions of its own -- this base is plain Fedora and enables its own.
-#
-# The script is copied in directly rather than through the ctx stage, because ctx
-# copies /out from this stage and mounting ctx here would be a dependency cycle.
-# It has to be executable for the same reason every other phase script is.
-COPY --chmod=755 build/35-kernel-uname-r-shim.sh /build/35-kernel-uname-r-shim.sh
-RUN --mount=type=bind,from=akmods-common,source=/,target=/akmods-common,ro \
-    --mount=type=cache,dst=/var/cache/libdnf5 \
-    --mount=type=tmpfs,dst=/tmp \
-    /build/35-kernel-uname-r-shim.sh
-
-# Context stage - combine local and imported OCI container resources
 FROM scratch AS ctx
 
 COPY build /build
@@ -139,7 +23,7 @@ COPY --from=shim-build /out /out
 # Renovate keeps the digest pin below up to date. Do not drop the digest or add
 # trailing whitespace: `just build` parses this line for the base tag and the
 # base image name, and a malformed line makes it exit rather than guess.
-FROM ghcr.io/projectbluefin/utah:testing
+FROM ghcr.io/projectbluefin/utah-nvidia:testing
 
 # Image identity - these define how bootc, fastfetch, and the ublue ecosystem
 # recognize your image. Change these to match your project name.
@@ -265,30 +149,6 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=tmpfs,dst=/boot \
     --mount=type=tmpfs,dst=/tmp \
     /ctx/build/25-hardware-and-session.sh
-
-### OGC KERNEL
-## Swaps Hummingbird's kernel for the Open Gaming Collective build the akmods
-## kmods are compiled against. Bind mounted rather than copied: the bundle is
-## ~150 MB of RPMs that must not ship in the image, and a COPY would leave them
-## in a layer unless something removed them afterwards.
-RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
-    --mount=type=bind,from=akmods-common,source=/,target=/akmods-common,ro \
-    --mount=type=cache,dst=/var/cache/libdnf5 \
-    --mount=type=tmpfs,dst=/boot \
-    --mount=type=tmpfs,dst=/tmp \
-    /ctx/build/30-kernel.sh
-
-### NVIDIA
-## The open kernel module, plus the userspace driver. Split from the kernel phase
-## so either can be reverted on its own: delete this RUN block and 40-nvidia.sh
-## to drop back to a plain OGC kernel, or delete both to return to Hummingbird's
-## own kernel entirely.
-RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
-    --mount=type=bind,from=akmods-nvidia,source=/,target=/akmods-nvidia,ro \
-    --mount=type=cache,dst=/var/cache/libdnf5 \
-    --mount=type=tmpfs,dst=/boot \
-    --mount=type=tmpfs,dst=/tmp \
-    /ctx/build/40-nvidia.sh
 
 ### CLEANUP
 ## Finalises package and Flatpak sources, then prunes build artifacts before
