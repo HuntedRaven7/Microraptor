@@ -139,7 +139,7 @@ COPY --from=shim-build /out /out
 # Renovate keeps the digest pin below up to date. Do not drop the digest or add
 # trailing whitespace: `just build` parses this line for the base tag and the
 # base image name, and a malformed line makes it exit rather than guess.
-FROM quay.io/hummingbird-community/bootc-os:latest
+FROM quay.io/hummingbird-community/bootc-os:latest@sha256:4f6863a201bb9556c050059179e458289150f175fe848c1ab733c1746b1c164b
 
 # Image identity - these define how bootc, fastfetch, and the ublue ecosystem
 # recognize your image. Change these to match your project name.
