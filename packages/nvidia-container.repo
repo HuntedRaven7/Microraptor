@@ -1,0 +1,27 @@
+# NVIDIA's own container toolkit repository.
+#
+# nvidia-container-toolkit was recorded as having "no source here at all" after
+# UBlue akmods bundle turned out to be unusable on this base. That did not
+# follow: the akmods bundle was one source, not the only one. NVIDIA publishes
+# these packages itself, and the path carries no distribution version --
+#
+#   https://nvidia.github.io/libnvidia-container/stable/rpm/$basearch
+#
+# -- so it is not tied to a Fedora release the way the akmods bundle is tied to
+# an exact kernel NEVR. Its dependencies are base-OS libraries Hummingbird has:
+# glibc 2.17 symbols, libcap, libelf, libseccomp.so.2, libresolv. Nothing
+# version-pinned, nothing kernel-coupled.
+#
+# gpgcheck=0 with repo_gpgcheck=1 is NVIDIA own arrangement and is a complete
+# chain rather than a gap: repomd.xml is signed (repomd.xml.asc is published
+# beside it), and repomd.xml carries the checksums of the metadata that carries
+# the checksums of the packages. The key is pinned to NVIDIA CORPORATION
+# (Open Source Projects), fingerprint
+# C95B 321B 61E8 8C18 09C4  F759 DDCA E044 F796 ECB0.
+[nvidia-container-toolkit]
+name=nvidia-container-toolkit
+baseurl=https://nvidia.github.io/libnvidia-container/stable/rpm/$basearch
+enabled=0
+repo_gpgcheck=1
+gpgcheck=0
+gpgkey=https://nvidia.github.io/libnvidia-container/gpgkey
