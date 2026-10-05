@@ -26,29 +26,29 @@ set -euo pipefail
 source /ctx/build/copr-helpers.sh
 
 if [ -f /usr/lib/systemd/logind.conf ]; then
-    sed -i 's/^#HandleLidSwitch=.*/HandleLidSwitch=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
-    sed -i 's/^#HandleLidSwitchDocked=.*/HandleLidSwitchDocked=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
-    sed -i 's/^#HandleLidSwitchExternalPower=.*/HandleLidSwitchExternalPower=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
-    sed -i 's/^#SleepOperation=.*/SleepOperation=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
+  sed -i 's/^#HandleLidSwitch=.*/HandleLidSwitch=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
+  sed -i 's/^#HandleLidSwitchDocked=.*/HandleLidSwitchDocked=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
+  sed -i 's/^#HandleLidSwitchExternalPower=.*/HandleLidSwitchExternalPower=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
+  sed -i 's/^#SleepOperation=.*/SleepOperation=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
 fi
 
 unit_exists() {
-    systemctl cat "$1" >/dev/null 2>&1
+  systemctl cat "$1" >/dev/null 2>&1
 }
 
 user_unit_exists() {
-    for dir in /usr/lib/systemd/user /usr/local/lib/systemd/user /etc/systemd/user; do
-        [ -e "$dir/$1" ] && return 0
-    done
-    return 1
+  for dir in /usr/lib/systemd/user /usr/local/lib/systemd/user /etc/systemd/user; do
+    [ -e "$dir/$1" ] && return 0
+  done
+  return 1
 }
 
 enable_unit() {
-    unit_exists "$1" && systemctl enable "$1" || true
+  unit_exists "$1" && systemctl enable "$1" || true
 }
 
 disable_unit() {
-    unit_exists "$1" && systemctl disable "$1" || true
+  unit_exists "$1" && systemctl disable "$1" || true
 }
 
 # Enable nullglob for all glob operations to prevent failures on empty matches
@@ -128,7 +128,7 @@ echo "::group:: Install Quickshell and Hyprland"
 # dnf5 autodetects a chroot from os-release, gets hummingbird-20251124-x86_64,
 # writes no repo file at all, and the install below fails with "No match for
 # argument: quickshell".
-copr_install_isolated "lionheartp/Hyprland" quickshell 
+copr_install_isolated "lionheartp/Hyprland" quickshell
 
 echo "::endgroup::"
 
@@ -148,13 +148,13 @@ echo "::group:: Install the audio stack"
 # pipewire-alsa is the ALSA compatibility layer, so ordinary desktop apps that
 # only speak ALSA still produce sound.
 dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
-	pipewire \
-	pipewire-alsa \
-	pipewire-utils \
-	wireplumber \
-	xdg-desktop-portal \
-	wireless-regdb \
-	wlr-randr
+  pipewire \
+  pipewire-alsa \
+  pipewire-utils \
+  wireplumber \
+  xdg-desktop-portal \
+  wireless-regdb \
+  wlr-randr
 
 echo "::endgroup::"
 
@@ -171,90 +171,90 @@ echo "::group:: Install the Utah package stack"
 # array literal takes comments between its elements and still expands to a single
 # argument list, which keeps the install one transaction.
 utah_packages=(
-	NetworkManager-config-connectivity-fedora
-	niri
-	NetworkManager-wifi
-	NetworkManager-wwan
-	wpa_supplicant
-	iw
-	wireless-regdb
-	ModemManager
-	bind-utils
-	iptables-nft
-	NetworkManager-bluetooth
-	fprintd
-	fprintd-pam
-	linux-firmware
-	iwlwifi-dvm-firmware
-	iwlwifi-mld-firmware
-	iwlwifi-mvm-firmware
-	iwlegacy-firmware
-	intel-gmmlib
-	intel-mediasdk
-	intel-vpl-gpu-rt
-	libheif
-	libva
-	libva-intel-media-driver
-	mesa-dri-drivers
-	mesa-filesystem
-	mesa-libEGL
-	mesa-libGL
-	mesa-libgbm
-	git
-	nautilus
-	grim
-	gcc
-	slurp
-	pavucontrol
-	rofi
-	mesa-vulkan-drivers
-	alsa-ucm
-	alsa-utils
-	pipewire-alsa
-	gdm
-	pipewire-utils
-	wireplumber
-	xdg-desktop-portal
-	langpacks-en
-	langpacks-fonts-en
-	abattis-cantarell-fonts
-	default-fonts-core-emoji
-	default-fonts-core-mono
-	default-fonts-core-sans
-	default-fonts-core-serif
-	google-noto-sans-math-fonts
-	google-noto-sans-mono-vf-fonts
-	google-noto-sans-symbols-2-fonts
-	google-noto-serif-vf-fonts
-	bash-completion
-	crypto-policies-scripts
-	dbus-tools
-	file
-	hostname
-	keyutils
-	less
-	libimobiledevice-utils
-	lm_sensors
-	man-db
-	poppler-utils
-	unzip
-	which
-	wlr-randr
-	xxd
-	zip
-	buildah
-	cups
-	cups-client
-	cups-ipptool
-	python3-pip
-	systemd-container
+  NetworkManager-config-connectivity-fedora
+  niri
+  NetworkManager-wifi
+  NetworkManager-wwan
+  wpa_supplicant
+  iw
+  wireless-regdb
+  ModemManager
+  bind-utils
+  iptables-nft
+  NetworkManager-bluetooth
+  fprintd
+  fprintd-pam
+  linux-firmware
+  iwlwifi-dvm-firmware
+  iwlwifi-mld-firmware
+  iwlwifi-mvm-firmware
+  iwlegacy-firmware
+  intel-gmmlib
+  intel-mediasdk
+  intel-vpl-gpu-rt
+  libheif
+  libva
+  libva-intel-media-driver
+  mesa-dri-drivers
+  mesa-filesystem
+  mesa-libEGL
+  mesa-libGL
+  mesa-libgbm
+  git
+  nautilus
+  grim
+  gcc
+  wl-clipboard
+  wl-cliphist
+  slurp
+  pavucontrol
+  rofi
+  mesa-vulkan-drivers
+  alsa-ucm
+  alsa-utils
+  pipewire-alsa
+  gdm
+  pipewire-utils
+  wireplumber
+  xdg-desktop-portal
+  langpacks-en
+  langpacks-fonts-en
+  abattis-cantarell-fonts
+  default-fonts-core-emoji
+  default-fonts-core-mono
+  default-fonts-core-sans
+  default-fonts-core-serif
+  google-noto-sans-math-fonts
+  google-noto-sans-mono-vf-fonts
+  google-noto-sans-symbols-2-fonts
+  google-noto-serif-vf-fonts
+  bash-completion
+  crypto-policies-scripts
+  dbus-tools
+  file
+  hostname
+  keyutils
+  less
+  libimobiledevice-utils
+  lm_sensors
+  man-db
+  poppler-utils
+  unzip
+  which
+  wlr-randr
+  xxd
+  zip
+  buildah
+  cups
+  cups-client
+  cups-ipptool
+  python3-pip
+  systemd-container
 )
 
 dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y "${utah_packages[@]}"
 
 echo "::endgroup::"
-
-
 
 echo "::group:: Install SDDM and Tailscale"
 
@@ -291,13 +291,13 @@ enable_unit systemd-resolved.service
 enable_unit ModemManager.service
 
 for unit in pipewire.socket pipewire-pulse.socket wireplumber.service \
-            xdg-user-dirs.service \
-            obex.service mpris-proxy.service; do
-    if user_unit_exists "${unit}"; then
-        systemctl --global enable "${unit}"
-    else
-        echo "user unit ${unit} is not installed; skipping" >&2
-    fi
+  xdg-user-dirs.service \
+  obex.service mpris-proxy.service; do
+  if user_unit_exists "${unit}"; then
+    systemctl --global enable "${unit}"
+  else
+    echo "user unit ${unit} is not installed; skipping" >&2
+  fi
 done
 
 # tailscaled is what makes `tailscale up` work. socket-activated, so the unit
@@ -341,17 +341,17 @@ echo "::endgroup::"
 # Guarded, because the file is copied in by the Containerfile and must be there,
 # and failing the build when it is not is better than a silently live repository.
 if [[ -f /etc/yum.repos.d/utah.repo ]]; then
-	sed -i 's/^enabled=1$/enabled=0/' /etc/yum.repos.d/utah.repo
-	echo "::group:: Finalise the Utah package factory"
-	if grep -qE '^enabled=1' /etc/yum.repos.d/utah.repo; then
-		echo "::error::utah-packages is still enabled in /etc/yum.repos.d/utah.repo" >&2
-		exit 1
-	fi
-	echo "utah-packages: enabled=0 (the factory mount does not survive this phase)"
-	echo "::endgroup::"
+  sed -i 's/^enabled=1$/enabled=0/' /etc/yum.repos.d/utah.repo
+  echo "::group:: Finalise the Utah package factory"
+  if grep -qE '^enabled=1' /etc/yum.repos.d/utah.repo; then
+    echo "::error::utah-packages is still enabled in /etc/yum.repos.d/utah.repo" >&2
+    exit 1
+  fi
+  echo "utah-packages: enabled=0 (the factory mount does not survive this phase)"
+  echo "::endgroup::"
 else
-	echo "::error::/etc/yum.repos.d/utah.repo is missing; cannot close the package factory" >&2
-	exit 1
+  echo "::error::/etc/yum.repos.d/utah.repo is missing; cannot close the package factory" >&2
+  exit 1
 fi
 
 # Restore default glob behavior
