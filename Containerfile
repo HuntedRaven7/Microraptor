@@ -83,8 +83,8 @@ FROM ghcr.io/ublue-os/brew:latest@sha256:bc6f5a9fc4f28cded2fe567b31f74825c1f4481
 #
 # `nvidia-open` is the open kernel module, which covers RTX 20/30/40/50-series
 # and GTX 16-series. Older hardware needs akmods-nvidia (the closed module).
-FROM ghcr.io/ublue-os/akmods:ogc-44@sha256:2ca12d5f66793016f98eddc85e167900edc35dbca581fb8b7db9e44945663c73 AS akmods-common
-FROM ghcr.io/ublue-os/akmods-nvidia-open:ogc-44@sha256:69a09c2f39c333565e93726c4d85cf84acffe2adfc2c611c92d541f13b17860b AS akmods-nvidia
+FROM ghcr.io/ublue-os/akmods:ogc-44@sha256:76ede6f1663a5cc3d0eecc76f2ba6281f34543b7f65ee89170398b82bd3772b5 AS akmods-common
+FROM ghcr.io/ublue-os/akmods-nvidia-open:ogc-44@sha256:77ae8a5fa75b9236b46cad24a858916219164586e3f85ba6bdf3d97ef7285f18 AS akmods-nvidia
 
 # Builds the kernel-uname-r shim in a stage that is thrown away.
 #

@@ -10,7 +10,7 @@ prefix auto-discovery. The numbers communicate intent.
 |---|---|
 | `00-image-info.sh` | Writes the image identity into `os-release` and `image-info.json`: the base image name, the Fedora major derived from the base's `os-release`, the version string, and the tag. |
 | `10-overlay.sh` | Overlays `projectbluefin/common`'s shared layer and the Brew integration, copies this template's declarations (Brewfiles, ujust recipes, Flatpak preinstalls, `/etc/skel` seeds), and enables the units that consume them. Installs no packages. |
-| `20-packages-and-services.sh` | Installs the default RPM and COPR packages and enables their services. Packages live here, not in the overlay phase, so an overlay edit cannot invalidate the package layer. |
+| `20-packages-and-services.sh` | Installs the default RPM and COPR packages and enables their services. Packages live here, not in the overlay phase, so an overlay edit cannot invalidate the package layer. Also installs Voxtype from a pinned release-URL RPM — see below. |
 | `25-hardware-and-session.sh` | WiFi and the Intel firmware it needs, Bluetooth, the polkit agent, GVFS and XDG, laptop power and firmware management, and the bash completion wiring. Separate from 20 because the justification is per-package — a reader asking why the firmware is 147 MB wants a different answer than one checking whether `just` is installed. |
 | `90-cleanup.sh` | Finalises package and Flatpak sources, prunes build artifacts, and prepares for `bootc container lint`. |
 
@@ -46,6 +46,41 @@ check is off and `90-cleanup.sh` closes the repository before the image is
 committed. Note the baseurl is spelled with a literal `44`, not `$releasever`:
 this base's `VERSION_ID` is a build date, so `$releasever` would expand to
 `20251124` and 404.
+
+## A package with no repository
+
+Voxtype is installed from a URL, not from a repository. Upstream ships a release
+RPM and nothing a distro could repackage: no Fedora package, no Terra package, no
+COPR, no Flathub build. Every other package in the phase gets its integrity from
+repository metadata and a GPG key the Containerfile installed; this one has
+neither, so the script has to supply both jobs itself:
+
+- **A version in the URL and a sha256 beside it.** Derived from one variable, so
+  they cannot disagree about which version is meant. Only the digest has to be
+  recomputed on a bump.
+- **The digest is checked before the install, not after.** dnf5 unpacks the
+  payload as it installs, so a check that ran afterwards would be reporting on
+  bytes already written to the image.
+- **`--nogpgcheck`, because the RPM is unsigned.** `rpm -Kv` reports
+  `Signature: (none)`. That flag turns off a check that has nothing to check; it
+  is not a substitute for the digest.
+- **A looped fetch.** The release asset 302s to a CDN host that intermittently
+  404s — the same failure `dnf5_retry` exists for. curl's `--retry` does not
+  cover it, because it retries one request against one URL with no host to fail
+  over to.
+- **`curl` installed explicitly.** It is what fetches the RPM, so leaving it to
+  the RPM's own dependency on it is circular.
+
+`/tmp` is mounted as tmpfs for this phase, so the 357 MB download never lands in
+an image layer.
+
+The general shape — pin the URL, pin the digest, verify before install — is what
+to reach for next time a package has no repository. Verify the digest from the
+upstream artifact directly:
+
+```bash
+curl -fsSL <url> | sha256sum
+```
 
 ## A COPR that enables nothing
 
