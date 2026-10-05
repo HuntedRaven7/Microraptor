@@ -181,6 +181,7 @@ utah_packages=(
   ModemManager
   bind-utils
   iptables-nft
+  gnome-disks
   NetworkManager-bluetooth
   fprintd
   fprintd-pam
