@@ -28,6 +28,9 @@ these customizations.
 - `ghostty` — from Terra
 - `pipewire`, `wireplumber`, `xdg-desktop-portal` — the audio and portal stack,
   from Fedora 44
+- `wtype` — Wayland virtual-keyboard typing, for Voxtype
+- `voxtype` `1.1.0` — push-to-talk dictation, from the upstream release RPM — see
+  [Voxtype](#voxtype)
 - The **OGC kernel** (`7.2.8-ogc1.1.fc44`) and the **NVIDIA open kernel module**,
   from `ublue-os/akmods` — see [Kernel and GPU](#kernel-and-gpu)
 
@@ -69,6 +72,78 @@ For other hardware, one line changes: `realtek-firmware` (7 MB),
 itself — so there is nothing to enable. The phase checks each unit exists before
 enabling it, because `systemctl enable` on a unit that is not installed fails the
 build and the set of units moves between releases.
+
+### Voxtype
+
+Push-to-talk dictation, version `1.1.0`, installed from
+[the upstream release RPM](https://github.com/peteonrails/voxtype/releases/tag/v1.1.0)
+in `build/20-packages-and-services.sh`.
+
+It is the only package here with no repository behind it. There is no Fedora
+package, no Terra package, no COPR, and no Flathub build — upstream ships a
+release RPM and nothing a distro could repackage. So the build does what dnf5's
+repository metadata would otherwise do: pins a version in the URL and pins the
+RPM's sha256 beside it, then verifies the download before handing it to dnf5.
+
+**The RPM is unsigned.** `rpm -Kv` reports `Signature: (none)`, and upstream's
+`SHA256SUMS.txt` has no line for it — it covers the loose per-backend binaries
+and the macOS artifacts only. The release does publish a detached `.asc`, but
+that is a signature over the RPM rather than a public key the rpmdb could check
+one against. So the install uses `--nogpgcheck` because there is nothing to
+check, and the pinned digest does the work instead. It is the stronger of the
+two available checks: it pins this exact artifact, where a key check trusts
+whoever holds the key today.
+
+**It is 700 MB installed, from a 357 MB download**, and that is upstream's shape
+rather than an accident. The RPM carries every backend they build —
+
+| Backend | What it needs |
+|---|---|
+| `voxtype-avx512`, `voxtype-avx2`, `voxtype-baseline` | CPU; no AVX2 variant exists for pre-Haswell |
+| `voxtype-vulkan` | GPU, any vendor |
+| `voxtype-onnx-cuda-12`, `voxtype-onnx-cuda-13` | NVIDIA |
+| `voxtype-onnx-migraphx` | Radeon |
+| `voxtype-osd`, `-osd-gtk4`, `-osd-quickshell` | the on-screen display |
+
+— and `/usr/bin/voxtype` is a wrapper that reads `/proc/cpuinfo` and picks one at
+run time. This image ships to machines the build never sees, so choosing a
+variant at build time would ship the wrong one to everyone whose CPU is not the
+build host's. Letting each user run `voxtype setup gpu --enable` does not remove
+the cost, it moves it onto everyone who has a GPU.
+
+The trade-off is the layer. Voxtype sits in the package phase rather than a
+phase of its own, so a version bump re-downloads every Fedora and Terra package
+alongside it. Its own `RUN` block between the package phase and
+`25-hardware-and-session.sh` would cap that at Voxtype alone; at 700 MB against
+the rest of the phase, that is the trade to revisit if the download cost starts
+to matter.
+
+### Enabling it
+
+The image installs the program and stops there. Three steps are deliberately
+left to the machine, because each one is per-hardware or per-user:
+
+```bash
+# 1. A model. This is the download, from models.voxtype.io, and it is per-machine.
+voxtype setup --download
+
+# 2. Enable the daemon. Not enabled in the image: voxtype.service starts the
+#    daemon, which exits immediately without a model from step 1.
+systemctl --user enable --now voxtype.service
+
+# 3. A way to trigger it, as a compositor binding rather than the built-in hotkey:
+#
+#    bind = SUPER, V, exec voxtype record start
+#    bindr = SUPER, V, exec voxtype record stop
+#
+#    The built-in ScrollLock hotkey reads /dev/input directly, so it needs the
+#    account in the `input` group: sudo usermod -aG input $USER
+```
+
+`wtype` is installed because this is a Wayland session and it is the best of
+Voxtype's typing backends; without it dictation falls through to
+`dotool` → `ydotool` → clipboard. `pipewire-alsa` and `wl-clipboard` were already
+in the image.
 
 ### Completions
 

@@ -273,6 +273,123 @@ dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y ghostty mangowm
 
 echo "::endgroup::"
 
+echo "::group:: Install Voxtype from its release RPM"
+
+# Voxtype is push-to-talk dictation, and it is the one thing in this image that
+# comes from a URL rather than a repository. There is no Fedora package, no
+# Terra package, no COPR, and no Flathub build -- the upstream project ships a
+# release RPM and nothing else a distro could repackage. So this group has to
+# do what the groups above get from dnf5's repository metadata: name a version,
+# prove the bytes are the ones that version published, and install them.
+#
+# It is here rather than in a phase of its own because it is the same kind of
+# thing as everything above it: an RPM the image ships. The cost of that is
+# worth stating rather than leaving to be discovered. A voxtype version bump
+# invalidates this whole layer and re-downloads every Fedora and Terra package
+# in it, and voxtype is 700 MB installed, so that is the worst ratio in the
+# build. Its own RUN block between this phase and 25-hardware-and-session.sh
+# would cap the blast radius at this group alone; that is the alternative if
+# the download cost ever matters more than the file count.
+#
+# 700 MB, from a 357 MB download, is upstream's shape and not an accident. The
+# RPM carries every backend they build: avx2, avx512 and baseline for the CPU,
+# vulkan for the GPU, and the ONNX runtimes for CUDA 12, CUDA 13 and MIGraphX.
+# /usr/bin/voxtype is a wrapper that reads /proc/cpuinfo and picks one at run
+# time. This image ships to machines this build never sees, so picking one here
+# would ship the wrong one to everybody whose CPU is not the build host's. The
+# alternative -- let each user run `voxtype setup gpu --enable` -- does not
+# remove the cost, it moves it onto everyone who has a GPU.
+#
+# Verification, because there is less of it than the groups above have:
+#
+#   Upstream publishes a SHA256SUMS.txt and a detached .asc per asset. Neither
+#   covers the .rpm. The sums file lists the loose per-backend binaries and the
+#   macOS artifacts; it has no line for the RPM. The .asc is a signature *over*
+#   the RPM rather than a public key the rpmdb could check one against, and
+#   the RPM carries no rpm signature of its own -- `rpm -Kv` reports
+#   "Signature: (none)". Importing a maintainer's key to trust one unsigned
+#   artifact would add a trust anchor to the image to replace a weaker one.
+#
+#   So the digest is pinned here instead, and it is the stronger of the two
+#   checks available: it pins this exact artifact, where a key check trusts
+#   whoever holds the key today, and it fails on a build that fetches something
+#   other than what the URL served. --nogpgcheck below turns off a check that
+#   has nothing to check; it does not stand in for the digest.
+#
+# Bumping the version means updating the URL and the digest together. They are
+# derived from one variable so they cannot disagree about which version is
+# meant; only the digest has to be recomputed, and SHA256SUMS.txt cannot do it
+# because it has no line for the RPM. Compute it from the artifact:
+#   curl -fsSL "${voxtype_rpm_url}" | sha256sum
+voxtype_version="1.1.0"
+voxtype_rpm_name="voxtype-${voxtype_version}-1.x86_64.rpm"
+voxtype_rpm_url="https://github.com/peteonrails/voxtype/releases/download/v${voxtype_version}/${voxtype_rpm_name}"
+voxtype_rpm_sha256="bec4afe2e4c0a75e2453931eea276bbf736b10bae14479ca2019a252263447f4"
+
+# curl is named here rather than left to the RPM's own dependency on it, because
+# curl is what fetches the RPM: relying on the package to supply the tool that
+# downloads the package is circular. wtype is the Wayland typing backend.
+# Upstream recommends it over the dotool -> ydotool -> clipboard chain this
+# image would otherwise fall through, and wl-clipboard and pipewire-alsa are
+# already installed above.
+#
+# Through dnf5_retry like every other transaction here. The mirrors flake on
+# package downloads regardless of where the package came from, so the RPM's
+# dependencies are no less exposed than any other package's.
+dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y curl wtype
+
+# Downloaded into /tmp, which the Containerfile mounts as tmpfs for this phase,
+# so 357 MB of RPM never lands in an image layer. Cleared on exit as well,
+# because the trap is cheaper than relying on the tmpfs mount still being there.
+voxtype_tmpdir="$(mktemp -d)"
+trap 'rm -rf "${voxtype_tmpdir}"' EXIT
+voxtype_rpm="${voxtype_tmpdir}/${voxtype_rpm_name}"
+
+# curl's own --retry does not cover a 404 on this fetch, for the same reason
+# dnf5_retry exists for the mirrors: it retries one request against one URL,
+# and there is no second host to fail over to. Looping the whole fetch is what
+# works. Downloaded to a .part name and renamed on success, so an interrupted
+# attempt can never be mistaken for a complete file by the digest check below.
+voxtype_fetched=0
+for voxtype_attempt in 1 2 3; do
+	if curl --fail --location --silent --show-error \
+		--retry 3 --retry-delay 5 \
+		--output "${voxtype_rpm}.part" \
+		"${voxtype_rpm_url}"; then
+		mv "${voxtype_rpm}.part" "${voxtype_rpm}"
+		voxtype_fetched=1
+		break
+	fi
+	echo "::warning::voxtype fetch failed (attempt ${voxtype_attempt}/3); retrying" >&2
+	sleep $((voxtype_attempt * 5))
+done
+
+if [[ "${voxtype_fetched}" -ne 1 ]]; then
+	echo "::error::could not fetch ${voxtype_rpm_url} after 3 attempts" >&2
+	exit 1
+fi
+
+# Checked before the install, not after: dnf5 unpacks the payload as it goes,
+# so verifying afterwards would mean the untrusted bytes were already on disk.
+if ! echo "${voxtype_rpm_sha256}  ${voxtype_rpm}" | sha256sum --check --strict -; then
+	echo "::error::${voxtype_rpm_name} does not match the pinned digest" >&2
+	echo "::error::recurring here means upstream republished the asset, or the URL is not what it was" >&2
+	exit 1
+fi
+
+# --nogpgcheck for the reason given above: the RPM is unsigned, so there is no
+# signature to check and no key to check it against. The digest above is what
+# stands in for it.
+#
+# Nothing is enabled here. voxtype.service is WantedBy=graphical-session.target
+# and starts the daemon, which fails immediately without a model, and the models
+# are a per-machine download from models.voxtype.io that `voxtype setup
+# --download` fetches on the user's own hardware. Enabling it at build time
+# would ship a unit that cannot succeed; the README carries the enable step.
+dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y --nogpgcheck "${voxtype_rpm}"
+
+echo "::endgroup::"
+
 echo "::group:: Enable desktop services"
 
 # Enable explicitly rather than relying on the shipped preset, matching how
