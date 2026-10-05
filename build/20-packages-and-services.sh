@@ -205,7 +205,6 @@ utah_packages=(
   grim
   gcc
   wl-clipboard
-  wl-cliphist
   slurp
   pavucontrol
   rofi
