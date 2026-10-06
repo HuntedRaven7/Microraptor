@@ -128,7 +128,7 @@ echo "::group:: Install Quickshell and Hyprland"
 # dnf5 autodetects a chroot from os-release, gets hummingbird-20251124-x86_64,
 # writes no repo file at all, and the install below fails with "No match for
 # argument: quickshell".
-copr_install_isolated "lionheartp/Hyprland" quickshell
+copr_install_isolated "lionheartp/Hyprland" quickshell hyprland
 
 echo "::endgroup::"
 
@@ -172,7 +172,6 @@ echo "::group:: Install the Utah package stack"
 # argument list, which keeps the install one transaction.
 utah_packages=(
   NetworkManager-config-connectivity-fedora
-  niri
   NetworkManager-wifi
   NetworkManager-wwan
   wpa_supplicant
@@ -181,6 +180,8 @@ utah_packages=(
   ModemManager
   bind-utils
   iptables-nft
+  adw-gtk3-theme
+  adwaita-fonts-all
   gnome-disks
   NetworkManager-bluetooth
   fprintd
@@ -353,29 +354,29 @@ voxtype_rpm="${voxtype_tmpdir}/${voxtype_rpm_name}"
 # attempt can never be mistaken for a complete file by the digest check below.
 voxtype_fetched=0
 for voxtype_attempt in 1 2 3; do
-	if curl --fail --location --silent --show-error \
-		--retry 3 --retry-delay 5 \
-		--output "${voxtype_rpm}.part" \
-		"${voxtype_rpm_url}"; then
-		mv "${voxtype_rpm}.part" "${voxtype_rpm}"
-		voxtype_fetched=1
-		break
-	fi
-	echo "::warning::voxtype fetch failed (attempt ${voxtype_attempt}/3); retrying" >&2
-	sleep $((voxtype_attempt * 5))
+  if curl --fail --location --silent --show-error \
+    --retry 3 --retry-delay 5 \
+    --output "${voxtype_rpm}.part" \
+    "${voxtype_rpm_url}"; then
+    mv "${voxtype_rpm}.part" "${voxtype_rpm}"
+    voxtype_fetched=1
+    break
+  fi
+  echo "::warning::voxtype fetch failed (attempt ${voxtype_attempt}/3); retrying" >&2
+  sleep $((voxtype_attempt * 5))
 done
 
 if [[ "${voxtype_fetched}" -ne 1 ]]; then
-	echo "::error::could not fetch ${voxtype_rpm_url} after 3 attempts" >&2
-	exit 1
+  echo "::error::could not fetch ${voxtype_rpm_url} after 3 attempts" >&2
+  exit 1
 fi
 
 # Checked before the install, not after: dnf5 unpacks the payload as it goes,
 # so verifying afterwards would mean the untrusted bytes were already on disk.
 if ! echo "${voxtype_rpm_sha256}  ${voxtype_rpm}" | sha256sum --check --strict -; then
-	echo "::error::${voxtype_rpm_name} does not match the pinned digest" >&2
-	echo "::error::recurring here means upstream republished the asset, or the URL is not what it was" >&2
-	exit 1
+  echo "::error::${voxtype_rpm_name} does not match the pinned digest" >&2
+  echo "::error::recurring here means upstream republished the asset, or the URL is not what it was" >&2
+  exit 1
 fi
 
 # --nogpgcheck for the reason given above: the RPM is unsigned, so there is no
