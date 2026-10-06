@@ -37,6 +37,23 @@ set -euo pipefail
 # being retried into a timeout.
 ###############################################################################
 
+# DNF5_RETRY_ATTEMPTS bounds how many times a transaction is retried. It is
+# defaulted HERE rather than in copr-helpers.sh, where it used to live, because
+# this is the file that defines the function every phase calls and the variable is
+# that function's only knob. A phase that sources dnf5-retry.sh and nothing else
+# had no way to get it: 25-server-network.sh died on
+#
+#   line 41: DNF5_RETRY_ATTEMPTS: unbound variable
+#
+# because `set -u` is right about an unset variable and the default was two files
+# away in a helper that helper only reached by convention.
+#
+# The unit test suites had been exporting DNF5_RETRY_ATTEMPTS themselves to keep
+# the retry loops fast, which masked this completely: every phase that calls
+# dnf5_retry passed in the test suite and failed in the image. Set it to 1 there
+# for the loops, never as a substitute for the default existing.
+DNF5_RETRY_ATTEMPTS="${DNF5_RETRY_ATTEMPTS:-8}"
+
 dnf5_retry() {
 	local attempts="$1"
 	shift

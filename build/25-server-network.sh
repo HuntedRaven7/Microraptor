@@ -27,6 +27,16 @@ set -euo pipefail
 # physical access to is a node that cannot be fixed at all.
 ###############################################################################
 
+# dnf5_retry, and with it the DNF5_RETRY_ATTEMPTS default, which lives in this
+# helper rather than in copr-helpers.sh. Sourced explicitly because this phase
+# installs from Fedora proper and needs no COPR: it does not need
+# copr-helpers.sh, and reaching for it just to pick up a default would have
+# hidden that. It reached for nothing, and the first transaction in the image
+# failed on an unbound variable.
+#
+# shellcheck source=/dev/null
+source /ctx/build/dnf5-retry.sh
+
 # Enable nullglob for all glob operations to prevent failures on empty matches
 shopt -s nullglob
 

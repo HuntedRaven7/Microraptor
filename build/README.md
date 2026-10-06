@@ -228,5 +228,28 @@ dnf5 install -y package-name
 
 - Scripts run as root, with the build context at `/ctx`.
 - Use `dnf5`, never `dnf` or `yum`, and always `-y`.
+- **Through `dnf5_retry`**, and source `/ctx/build/dnf5-retry.sh` to get it.
 - Disable any repository you enable. `copr_install_isolated` does it for COPRs.
 - Keep one purpose per script, and name it for that purpose.
+
+### `DNF5_RETRY_ATTEMPTS` is defaulted in the helper, not by the caller
+
+`dnf5_retry "${DNF5_RETRY_ATTEMPTS}" …` is how every transaction goes, and the
+default for that variable lives in **`dnf5-retry.sh`** — the file that defines the
+function. It used to live in `copr-helpers.sh` instead, and that was wrong twice
+over: a phase that needs no COPR has no reason to source `copr-helpers.sh`, so it
+got the function without the count and the image died with
+
+```
+line 41: DNF5_RETRY_ATTEMPTS: unbound variable
+```
+
+The unit suites could not see this, because they all `export DNF5_RETRY_ATTEMPTS=1`
+to keep the retry loops instant. That export is correct and stays — but it means
+a phase suite passes whether or not the default exists.
+
+So the rule: **a variable a phase needs must be defaulted in a sourced helper, not
+in the environment the test harness happens to set.** `dnf5-retry_test.bats` is the
+one suite that does not export the variable, and it carries two guards — the
+default is reachable from that file alone, and every phase that calls `dnf5_retry`
+reaches it. When adding a suite, do not export it there.
