@@ -300,3 +300,36 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 	run grep -c 'terra.repo' "${REPO_ROOT}/Containerfile.homelab"
 	[ "$output" -eq 0 ]
 }
+
+@test "flavours: no phase contacts the systemd bus" {
+	# There is no systemd running as PID 1 in a build container. daemon-reload,
+	# daemon-reexec and start/restart all need the bus and fail with
+	#
+	#   System has not been booted with systemd as init system (PID 1). Can't operate.
+	#   Failed to connect to system scope bus via local transport: Host is down
+	#
+	# ending the build on a phase whose work already succeeded. 30-k0s.sh called
+	# daemon-reload after writing its units and failed the first homelab build on
+	# exactly that.
+	#
+	# `enable` and `disable` are fine and deliberately NOT matched: they are
+	# filesystem operations that write the enable symlinks, which is why every
+	# phase in build/ uses them and none of them fails.
+	#
+	# Scanned across build/ rather than asserted per-file, so the next phase that
+	# reaches for the bus fails here instead of at the end of a long build.
+	local phase hits
+	while IFS= read -r phase; do
+		[[ -n "${phase}" ]] || continue
+		# Comments excluded: the phases explain this trap in prose and name the
+		# commands, and an assertion that trips on its own documentation gets
+		# deleted rather than fixed.
+		hits=$(grep -vE '^[[:space:]]*#' "${phase}" |
+			grep -cE 'systemctl[[:space:]].*(daemon-reload|daemon-reexec|start|restart|reload)' || true)
+		if [ "${hits}" -ne 0 ]; then
+			echo "$(basename "${phase}") runs a systemctl command that needs the systemd bus:" >&2
+			grep -nE 'systemctl[[:space:]].*(daemon-reload|daemon-reexec|start|restart|reload)' "${phase}" >&2
+			return 1
+		fi
+	done < <(find "${REPO_ROOT}/build" -maxdepth 1 -type f -name '*.sh' | sort)
+}

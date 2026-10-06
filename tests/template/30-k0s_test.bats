@@ -290,8 +290,21 @@ teardown() {
 	[ -f "${TEST_ROOT}/root/usr/lib/systemd/system/k0scontroller.service" ]
 	[ -f "${TEST_ROOT}/root/usr/lib/systemd/system/k0sworker.service" ]
 
-	run grep -cE 'k0s(controller|worker)' "${SYSTEMCTL_LOG}"
-	[ "$output" -eq 0 ]
+	# Asserted as "no systemctl call at all" rather than "no enable call", and the
+	# distinction is load-bearing: neither phase invokes systemctl any more, so the
+	# stub never runs and the log is never created. `grep -c` on a missing file
+	# yields an EMPTY string rather than 0, so `[ "" -eq 0 ]` is a syntax error and
+	# the assertion would fail on the absence of the very file it was checking.
+	#
+	# 30-k0s.sh previously called `systemctl daemon-reload`, which kept the log
+	# existing and hid this. That call was itself wrong -- there is no systemd as
+	# PID 1 in a build container -- so removing it exposed the assertion rather
+	# than breaking anything real.
+	[ ! -e "${SYSTEMCTL_LOG}" ] || {
+		echo "30-k0s.sh invoked systemctl at all; it must not" >&2
+		cat "${SYSTEMCTL_LOG}" >&2
+		return 1
+	}
 }
 
 @test "30-k0s: makes the controller and worker units mutually exclusive by token" {
@@ -472,8 +485,15 @@ teardown() {
 	# Both phases install units. Enabling is the operator's decision for k0s, and
 	# kc-agent's is a preset. Neither calls `systemctl enable` directly, which is
 	# the property that keeps a 263 MB binary from booting a cluster by surprise.
+	#
+	# No systemctl invocation at all, so the log must not exist. See the note on the
+	# equivalent assertion above for why "the file is absent" is the right shape
+	# rather than counting zero lines in it.
 	run bash "${K0S_SCRIPT}"
 	[ "$status" -eq 0 ]
-	run grep -cE '^enable ' "${SYSTEMCTL_LOG}"
-	[ "$output" -eq 0 ]
+	[ ! -e "${SYSTEMCTL_LOG}" ] || {
+		echo "30-k0s.sh invoked systemctl" >&2
+		cat "${SYSTEMCTL_LOG}" >&2
+		return 1
+	}
 }

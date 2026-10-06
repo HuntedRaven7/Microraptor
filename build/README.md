@@ -231,6 +231,14 @@ dnf5 install -y package-name
 - **Through `dnf5_retry`**, and source `/ctx/build/dnf5-retry.sh` to get it.
 - Disable any repository you enable. `copr_install_isolated` does it for COPRs.
 - Keep one purpose per script, and name it for that purpose.
+- **`systemctl enable` and `disable` work; `daemon-reload` does not.** There is no
+  systemd as PID 1 in a build container, so `daemon-reload`, `daemon-reexec` and
+  `start`/`restart` fail with `Failed to connect to system scope bus` and end the
+  build on a phase whose work already succeeded. `enable`/`disable` are filesystem
+  operations that write the enable symlinks, which is why every phase uses them
+  and none of them fails. systemd reads `/usr/lib/systemd/system` on first boot,
+  so a unit written during the build needs no reload. No phase here calls
+  `daemon-reload`, and `tests/template/flavours_test.bats` fails if one does.
 
 ### `DNF5_RETRY_ATTEMPTS` is defaulted in the helper, not by the caller
 

@@ -191,6 +191,8 @@ cat >/usr/lib/systemd/system/kc-agent.service.d/10-microraptor.preset <<'EOF'
 enable kc-agent.service
 EOF
 
-systemctl daemon-reload
+# No `systemctl daemon-reload`, for the reason 30-k0s.sh gives at length: there is
+# no systemd as PID 1 in a build container, so there is nothing to reload and the
+# command fails the build on a phase that has already done its work.
 
 echo "::endgroup::"

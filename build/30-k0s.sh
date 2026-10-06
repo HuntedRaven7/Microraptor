@@ -261,6 +261,20 @@ K0S_CONTROLLER_ARGS="--enable-worker --single --disable-components=helm,autopilo
 K0S_WORKER_ARGS="--disable-components=helm,autopilot"
 EOF
 
-systemctl daemon-reload
+# No `systemctl daemon-reload` here, deliberately.
+#
+# There is no systemd running as PID 1 in a build container, so there is nothing to
+# reload, and the command does not degrade gracefully:
+#
+#   System has not been booted with systemd as init system (PID 1). Can't operate.
+#   Failed to connect to system scope bus via local transport: Host is down
+#
+# which fails the build on a phase whose entire job already succeeded two lines
+# earlier. Nothing in the image needs it: systemd reads /usr/lib/systemd/system on
+# first boot, and the enable symlinks are written by `systemctl enable` -- which
+# works here for exactly the reason daemon-reload does not, in that it is a
+# filesystem operation rather than a bus operation.
+#
+# No other phase in build/ calls daemon-reload, and none of them need to.
 
 echo "::endgroup::"
