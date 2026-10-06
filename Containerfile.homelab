@@ -1,0 +1,259 @@
+###############################################################################
+# PROJECT NAME CONFIGURATION
+###############################################################################
+# Name: microraptor-homelab
+#
+# The second of this repository's two images. The workstation image is
+# Containerfile.workstation and is still called plain `microraptor`; this one is
+# `microraptor-homelab`.
+#
+# The authoritative name at publish time comes from the workflow that builds it:
+# build-homelab-image.yml sets IMAGE_NAME from its own `image-name` input rather
+# than from github.event.repository.name, because a repository publishes one
+# image per workflow here and not one image per repository. See the Justfile's
+# HOMELAB_IMAGE_NAME for the local fallback, and build/README.md for why
+# tests/contract/identity_test.bats does not check this file against the
+# workstation's.
+###############################################################################
+
+###############################################################################
+# MULTI-STAGE BUILD ARCHITECTURE
+###############################################################################
+# Same shape as Containerfile.workstation: a context stage, one base image, and a
+# sequence of RUN blocks naming one build script each. What differs is which
+# scripts those are, and the difference is the whole point of having a second
+# Containerfile rather than a conditional.
+#
+# This image has no desktop. Concretely, it omits:
+#
+#   10-overlay.sh        the Common desktop layer, Homebrew, and Flatpak. What is
+#                        kept from it is /etc/containers/policy.json, copied
+#                        directly rather than through the phase -- see OVERLAY.
+#   20-packages-and-services.sh   replaced by 20-server-base.sh
+#   25-hardware-and-session.sh    replaced by 25-server-network.sh
+#   30-kernel.sh        the Open Gaming Collective kernel and the akmods kmods
+#   40-nvidia.sh        the open kernel module and userspace driver
+#   60-desktop-swap.sh.example
+#
+# On the kernel and NVIDIA phases specifically: the user asked for the basic
+# kernel, and there is a second reason to be glad of that here. Those two phases
+# between them pull ~150 MB of bind-mounted akmods RPMs and an NVIDIA userspace
+# stack into a cluster node, and every one of those is another thing that has to
+# still work in two years when the node is the one holding the cluster together.
+# A node with the distribution's own kernel has the fewest moving parts, which is
+# what you want on the machine whose failure is expensive.
+#
+# Shared with the workstation, deliberately:
+#
+#   00-image-info.sh     image identity in os-release and image-info.json
+#   90-cleanup.sh        repository closing and pruning. Already lists
+#                       tailscale.repo in its closed set, which is one of the
+#                       reasons tailscale can be installed here without this
+#                       image needing to teach the cleanup phase about it.
+#   copr-helpers.sh, dnf5-retry.sh   sourced helpers
+#
+# See: https://docs.projectbluefin.io/contributing/ for architecture diagram
+###############################################################################
+
+# OCI package factory. Carries a repository of prebuilt RPMs, bind mounted to
+# /etc/utah-packages and read as a file:// dnf5 source.
+#
+# The FROM below is a literal reference, not ${ARG} interpolation, for the same
+# reason the comment on Containerfile.workstation gives at length: Buildah does
+# not substitute a global ARG into a FROM line here, so `FROM ${PACKAGE_IMAGE}@...`
+# expanded to nothing and Buildah reported "no FROM statement found" with exit
+# 125. The two digests are also deliberately different objects -- the ARG names
+# the manifest list, the FROM names the single-platform manifest -- which is
+# exactly why copying these three lines verbatim beats retyping them.
+ARG PACKAGE_IMAGE=ghcr.io/projectbluefin/utah-packages
+ARG PACKAGE_IMAGE_SHA=sha256:0f04cff2dd0b085604ff3cd79d538ab14b97cbe356980f7d365a35dfc70c857b
+
+FROM ghcr.io/projectbluefin/utah-packages@sha256:d257e97a0057e37da47995bb142c180e2352960ab13bd44594215616a395b717 AS packages
+
+# Shared runtime layer: container trust policy and the ujust entry point. Only
+# /system_files is used, and only one file out of it -- see OVERLAY.
+FROM ghcr.io/projectbluefin/common:latest@sha256:35c638f7aaf6e07d4638a551fe143eb3d955db5159166acf6831479095ec1089 AS common
+
+FROM scratch AS ctx
+
+COPY build /build
+COPY custom /custom
+COPY packages /packages
+
+COPY --from=common /system_files /oci/common
+
+### BASE
+## Hummingbird: Fedora 44 packages, minimal, no desktop. The same base as the
+## workstation image and the same digest, so both images resolve the same RPMs
+## and a package installed in one is the same build as in the other.
+##
+## trailing whitespace: `just build` parses this line for the base tag and the base
+## image name, and a malformed line makes it exit rather than guess.
+FROM quay.io/hummingbird-community/bootc-os:latest@sha256:fcbd6c30452076312525ca166df9a1f1dbd9f97347a5ad80c52a55cbcd526525
+
+# Image identity - these define how bootc, fastfetch, and the ublue ecosystem
+# recognize your image.
+ARG IMAGE_NAME="microraptor-homelab"
+ARG IMAGE_VENDOR="projectbluefin"
+ARG UBLUE_IMAGE_TAG="stable"
+# Supplied by `just build` from the base image's FROM line.
+ARG BASE_IMAGE_NAME=""
+ARG VERSION=""
+# Hummingbird's os-release reports VERSION_ID="20251124", a build date rather than
+# a Fedora release, so 00-image-info.sh cannot derive the Fedora major from it.
+# This is the release packages/fedora.repo points at, and it moves together with
+# that file.
+ARG FEDORA_MAJOR_VERSION="44"
+# Copr chroot for this base. `dnf5 copr enable` autodetects one from os-release
+# and Hummingbird yields hummingbird-20251124-x86_64, which no COPR carries.
+ENV COPR_CHROOT="fedora-44-x86_64"
+
+# Architecture, for the two pinned-binary phases. TARGETARCH is podman's
+# automatic build arg, named for GOARCH ("amd64"/"arm64", not "x86_64"). Both
+# 30-k0s.sh and 35-kc-agent.sh hard-fail on anything they have no digest for,
+# rather than falling back to amd64: a silent fallback would install a binary
+# that cannot execute, and that surfaces as a node booting to nothing rather
+# than as a build error.
+ARG TARGETARCH
+
+### IMAGE INFO
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=tmpfs,dst=/boot \
+    --mount=type=tmpfs,dst=/tmp \
+    /ctx/build/00-image-info.sh
+
+### PACKAGE SOURCES
+## Hummingbird ships only its own repository, so dnf5 needs both the Fedora
+## definitions in packages/ and its own plugin packages before any later phase can
+## run a transaction. Same set as the workstation image:
+##
+##   - packages/*.repo go to /etc/yum.repos.d, keys to /etc/pki/rpm-gpg
+##   - dnf5-plugins provides the `config-manager` and `versionlock` subcommands
+##     that 90-cleanup.sh calls
+##   - rsync, for the overlay below
+##
+## install_weak_deps=0 is carried over from the workstation image and matters more
+## here: it is why ly's brightnessctl recommend and every other weak dependency in
+## the two pinned-binary phases' neighbours stays out of the image.
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=bind,from=packages,source=/repository,target=/etc/utah-packages,ro \
+    --mount=type=cache,dst=/var/cache/libdnf5 \
+    --mount=type=tmpfs,dst=/boot \
+    --mount=type=tmpfs,dst=/tmp \
+    install -d -m0755 /etc/yum.repos.d /etc/pki/rpm-gpg \
+    && install -m0644 /ctx/packages/fedora.repo /ctx/packages/utah.repo /etc/yum.repos.d/ \
+    && install -m0644 /ctx/packages/RPM-GPG-KEY-fedora-44-primary /etc/pki/rpm-gpg/ \
+    && . /ctx/build/dnf5-retry.sh \
+    && dnf5_retry 12 install -y dnf5-plugins rsync \
+    && dnf5 config-manager setopt keepcache=1 install_weak_deps=0
+
+### OVERLAY
+## One file out of Common, copied rather than layered.
+##
+## The workstation image overlays all of Common's shared runtime: ujust, first-boot
+## hooks, container policy, and the Homebrew and Flatpak declarations. Most of
+## that is desktop-adjacent, and layering the whole directory to get one file
+## would drag the rest in.
+##
+## /etc/containers/policy.json is the one worth keeping: it is what makes
+## containers/podman in this image accept the registry pulls the k0s and
+## containerd images come from. Taken verbatim from Common for the same reason the
+## workstation takes it verbatim -- its sigstore scopes cover other namespaces and
+## this image's own falls to the `""` catch-all, which is why 00-image-info.sh
+## writes an unverified update transport. See the ci skill on signing.
+##
+## flatpak is deliberately not installed and Flathub is deliberately not
+## configured: there are no desktop applications on a cluster node.
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=cache,dst=/var/cache/libdnf5 \
+    --mount=type=bind,from=packages,source=/repository,target=/etc/utah-packages,ro \
+    --mount=type=tmpfs,dst=/boot \
+    --mount=type=tmpfs,dst=/tmp \
+    install -D -m0644 /ctx/oci/common/shared/etc/containers/policy.json /etc/containers/policy.json
+
+### SERVER BASE PACKAGES AND HARDENING
+## The server baseline, tailscale, and fail2ban. Replaces the workstation's
+## 20-packages-and-services.sh: no display manager, no compositor, no terminal,
+## no dictation.
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=cache,dst=/var/cache/libdnf5 \
+    --mount=type=bind,from=packages,source=/repository,target=/etc/utah-packages,ro \
+    --mount=type=cache,dst=/var/cache/rpm-ostree \
+    --mount=type=tmpfs,dst=/boot \
+    --mount=type=tmpfs,dst=/tmp \
+    /ctx/build/20-server-base.sh
+
+### NETWORKING, WIFI AND SSH
+## NetworkManager, the WiFi stack and its Intel firmware, and sshd with key-only
+## authentication. Replaces the workstation's 25-hardware-and-session.sh.
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=cache,dst=/var/cache/libdnf5 \
+    --mount=type=cache,dst=/var/cache/rpm-ostree \
+    --mount=type=tmpfs,dst=/boot \
+    --mount=type=tmpfs,dst=/tmp \
+    /ctx/build/25-server-network.sh
+
+### K0S
+## One 263 MB static binary from a pinned release, plus the controller and worker
+## units. Neither is enabled: a node is a controller or a worker by decision, not
+## by image.
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=cache,dst=/var/cache/libdnf5 \
+    --mount=type=cache,dst=/var/cache/rpm-ostree \
+    --mount=type=tmpfs,dst=/boot \
+    --mount=type=tmpfs,dst=/tmp \
+    /ctx/build/30-k0s.sh
+
+### KC-AGENT (KUBESTELLAR CONSOLE)
+## The console agent, from a pinned nightly, plus its preset-enabled unit.
+##
+## Split from the k0s block so that a change to a 263 MB pinned binary does not
+## invalidate the console layer, and the reverse. The two are adjacent because
+## kc-agent has nothing to serve without a cluster behind it.
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=cache,dst=/var/cache/libdnf5 \
+    --mount=type=cache,dst=/var/cache/rpm-ostree \
+    --mount=type=tmpfs,dst=/boot \
+    --mount=type=tmpfs,dst=/tmp \
+    /ctx/build/35-kc-agent.sh
+
+### CLEANUP
+## Finalises package and Flatpak sources, then prunes build artifacts before
+## linting. Shared with the workstation image unchanged; see build/README.md for
+## why it is safe on an image with no flatpak and no desktop.
+##
+## /run is deliberately not mounted as tmpfs here: the script must remove
+## image-layer files such as /run/dnf so bootc lint's nonempty-run-tmp check
+## passes.
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=tmpfs,dst=/tmp \
+    --mount=type=tmpfs,dst=/boot \
+    /ctx/build/90-cleanup.sh
+
+ARG IMAGE_DESC="Microraptor Homelab: Hummingbird, k0s, the KubeStellar Console, fail2ban and tailscale"
+ARG IMAGE_CREATED=""
+ARG IMAGE_LOGO_URL="https://avatars.githubusercontent.com/u/120078124?s=200&v=4"
+ARG IMAGE_KEYWORDS="bootc,ublue,universal-blue,k0s,kubernetes,kubestellar,homelab"
+ARG IMAGE_REF="main"
+
+# Declared late so a new version or commit only invalidates the label layer.
+ARG SHA_HEAD_SHORT=""
+
+LABEL org.opencontainers.image.title="${IMAGE_NAME}" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${SHA_HEAD_SHORT}" \
+      org.opencontainers.image.description="${IMAGE_DESC}" \
+      org.opencontainers.image.source="https://github.com/${IMAGE_VENDOR}/${IMAGE_NAME}/blob/${IMAGE_REF}/Containerfile.homelab" \
+      org.opencontainers.image.url="https://github.com/${IMAGE_VENDOR}/${IMAGE_NAME}" \
+      org.opencontainers.image.vendor="${IMAGE_VENDOR}" \
+      org.opencontainers.image.created="${IMAGE_CREATED}" \
+      io.artifacthub.package.readme-url="https://raw.githubusercontent.com/${IMAGE_VENDOR}/${IMAGE_NAME}/refs/heads/main/README.md" \
+      io.artifacthub.package.logo-url="${IMAGE_LOGO_URL}" \
+      io.artifacthub.package.keywords="${IMAGE_KEYWORDS}" \
+      io.artifacthub.package.license="Apache-2.0" \
+      io.artifacthub.package.deprecated="false" \
+      containers.bootc="1"
+
+### INIT
+## Required for bootc images
+CMD ["/sbin/init"]

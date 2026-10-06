@@ -1,17 +1,35 @@
 ---
-name: Build and Push Image
+name: Build and Push Homelab Image
 
-# Two-branch model:
-#   main   = testing branch, publishes :stable-testing and :testing
-#   stable = production branch, receives the exact signed/testing digest through
-#            execute-release.yml; it never rebuilds an image.
-# promote-main-to-stable.yml opens the scheduled/manual main -> stable promotion
-# PR. execute-release.yml runs the release gate and promotes the candidate.
+# The second image this repository publishes. build-image.yml builds
+# Containerfile.workstation and is unchanged; this builds Containerfile.homelab,
+# which shares the base, 00-image-info.sh and 90-cleanup.sh with it and has no
+# desktop at all.
 #
-# Builds run on push to main only; PR builds are disabled. A change to a
-# workflow the build depends on — build-image, promote, unit tests — still
-# builds, so a break in it is caught. The four validate workflows are PR
-# linting only and never affect the image.
+# Why a separate workflow rather than a matrix row in build-image.yml:
+#
+#   IMAGE_NAME differs, and it is derived, not chosen. build-image.yml takes it
+#   from github.event.repository.name, which is the right rule for a repository
+#   whose one image is named after the repository. This repository has two, so
+#   the homelab image's name is set literally here and the workstation's stays
+#   derived. Deriving both from one expression would mean the workstation image
+#   silently changed name the day a second image was added.
+#
+#   The tag stream is the same, so both images publish :stable-testing from main
+#   and are promoted by the same execute-release.yml. See "Release model" below.
+#
+# Release model:
+#   main   = testing branch, publishes :stable-testing and :testing.
+#   stable = production, receives the signed digest through execute-release.yml.
+#
+# On promotion: execute-release.yml promotes by repository, not by image, and
+# today resolves one candidate digest. Once this image is being promoted, that
+# workflow needs an input naming which image it is promoting, or the homelab
+# release silently stops being promoted. That is the one piece of work this
+# workflow deliberately does NOT do here -- see the note in execute-release.yml.
+#
+# Builds run on push to main only; PR builds are disabled, matching
+# build-image.yml. A change to a workflow the build depends on still builds.
 on:
   push:
     branches:
@@ -28,15 +46,15 @@ permissions:
   attestations: write
 
 env:
-  IMAGE_NAME: "${{ github.event.repository.name }}"
+  # Literal, not github.event.repository.name. See the header: the workstation
+  # image is named after the repository and this one is not.
+  IMAGE_NAME: "microraptor-homelab"
   IMAGE_VENDOR: "${{ github.repository_owner }}"
   IMAGE_REGISTRY: "ghcr.io/${{ github.repository_owner }}"
-  # Image description, keywords and logo are the Containerfile's ARGs, so CI and
-  # local builds agree. Set IMAGE_DESC, IMAGE_KEYWORDS, IMAGE_LOGO_URL or
-  # IMAGE_REF here only to override the Containerfile deliberately.
+  IMAGE_FLAVOR: "homelab"
   DEFAULT_TAG: "stable"
-  PRODUCTION_BRANCH: "stable" # The branch that publishes :stable production images
-  REGISTRY_CACHE_WRITE: "1" # CI always writes the layer cache; local builds stay read-only
+  PRODUCTION_BRANCH: "stable"
+  REGISTRY_CACHE_WRITE: "1"
   ENABLE_RECHUNKING: "false"
   RECHUNK_MAX_LAYERS: "128"
 
@@ -45,58 +63,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build and push image
-    # A manual dispatch may select any ref. Limit it to the repository's default
-    # branch so it cannot bypass the candidate-digest release path by rebuilding
-    # and publishing from stable.
-    if: github.event_name != 'workflow_dispatch' || github.ref_name == github.event.repository.default_branch
-    # Pinned to 24.04: projectbluefin/actions' setup-runner hard-asserts
-    # `ubuntu-24.04` when adding its resolute apt source, so a 26.04 runner
-    # fails that step. Renovate is held below 26.04 in renovate.json too.
+  identify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 360
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-      attestations: write
-
+    outputs:
+      tag_stream: ${{ steps.stream.outputs.tag_stream }}
+      version: ${{ steps.version.outputs.version }}
     steps:
-      - name: Prepare environment
-        run: |
-          echo "IMAGE_REGISTRY=${IMAGE_REGISTRY,,}" >> "${GITHUB_ENV}"
-          echo "IMAGE_NAME=${IMAGE_NAME,,}" >> "${GITHUB_ENV}"
-
-      # Anything not on the production branch is a testing build. TAG_STREAM
-      # keeps generate-tags on the "testing" stream so it never emits
-      # stable-daily* aliases that would collide with production; the
-      # Finalize branch tags step renames them to stable-testing-*.
-      - name: Determine image tag
-        id: determine-tag
+      - name: Resolve tag stream
+        id: stream
         shell: bash
-        env:
-          REF_NAME: ${{ github.ref_name }}
         run: |
-          if [[ "${REF_NAME}" != "${PRODUCTION_BRANCH}" ]]; then
-            echo "DEFAULT_TAG=${DEFAULT_TAG}-testing" >> "${GITHUB_ENV}"
-            echo "TAG_STREAM=testing" >> "${GITHUB_ENV}"
-            echo "Building testing image: ${DEFAULT_TAG}-testing"
+          if [[ "${GITHUB_REF_NAME}" == "${PRODUCTION_BRANCH}" ]]; then
+            echo "tag_stream=stable" >> "${GITHUB_OUTPUT}"
           else
-            echo "TAG_STREAM=${DEFAULT_TAG}" >> "${GITHUB_ENV}"
-            echo "Building production image: ${DEFAULT_TAG}"
+            echo "tag_stream=testing" >> "${GITHUB_OUTPUT}"
           fi
 
+  build:
+    needs: identify
+    runs-on: ubuntu-24.04
+    steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Preflight
-        id: preflight
-        uses: projectbluefin/actions/bootc-build/preflight@ae7d740d261d56354aeaf0a72af6f87e442e0472 # v1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
-          registry: ghcr.io
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          image-name: ${{ env.IMAGE_NAME }}
+          fetch-depth: 1
 
       - name: Setup runner
         uses: projectbluefin/actions/bootc-build/setup-runner@ae7d740d261d56354aeaf0a72af6f87e442e0472 # v1
@@ -107,15 +97,18 @@ jobs:
           install-tools: '["just"]'
 
       - name: Restore DNF cache
-        id: dnf-cache-restore
         uses: projectbluefin/actions/bootc-build/dnf-cache@ae7d740d261d56354aeaf0a72af6f87e442e0472 # v1
         with:
           action: restore
-          cache-name: ${{ env.IMAGE_NAME }}
-          cache-bust: ${{ hashFiles('**/Containerfile.*') }}
+          cache-name: ${IMAGE_NAME}
+          # Scoped to this image's own Containerfile, not **/Containerfile.*. The
+          # two images share a base and 90-cleanup.sh, so a change to the
+          # workstation Containerfile should not invalidate this image's dnf
+          # cache -- and vice versa. This is the one place the two images'
+          # caches should be kept apart.
+          cache-bust: ${{ hashFiles('Containerfile.homelab', 'build/2*-server-*.sh', 'build/30-k0s.sh', 'build/35-kc-agent.sh') }}
 
       - name: Build image
-        id: build-image
         uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -127,7 +120,7 @@ jobs:
           max_attempts: 3
           retry_wait_seconds: 300
           command: |
-            sudo -E "$(command -v just)" build "${IMAGE_NAME}" "${DEFAULT_TAG}"
+            sudo -E "$(command -v just)" build-homelab "${IMAGE_NAME}" "${DEFAULT_TAG}"
 
       - name: Get version label
         id: version
@@ -146,21 +139,16 @@ jobs:
         uses: projectbluefin/actions/bootc-build/generate-tags@ae7d740d261d56354aeaf0a72af6f87e442e0472 # v1
         with:
           base-name: ${{ env.IMAGE_NAME }}
-          stream-name: ${{ env.TAG_STREAM }}
+          stream-name: ${{ needs.identify.outputs.tag_stream }}
           version-label: ${{ steps.version.outputs.version }}
           event-name: ${{ github.event_name }}
 
-      # generate-tags emits stream-native tags (testing* or stable-daily* plus
-      # version aliases). For testing builds this renames testing* tags to
-      # stable-testing-*, keeps the bare :testing tag (the factory release
-      # gate in reusable-promote-squash.yml resolves digests from it), and
-      # guarantees the mutable consumer tag (:stable / :stable-testing) is
-      # always published.
       - name: Finalize branch tags
         id: branch-tags
         shell: bash
         env:
           GENERATED_TAGS: ${{ steps.generate-tags.outputs.tags }}
+          TAG_STREAM: ${{ needs.identify.outputs.tag_stream }}
         run: |
           read -r -a generated_tags <<< "${GENERATED_TAGS}"
           branch_tags=()
@@ -193,33 +181,29 @@ jobs:
         uses: projectbluefin/actions/bootc-build/dnf-cache@ae7d740d261d56354aeaf0a72af6f87e442e0472 # v1
         with:
           action: save
-          cache-name: ${{ env.IMAGE_NAME }}
+          cache-name: ${IMAGE_NAME}
           allow-write: "true"
-          cache-bust: ${{ hashFiles('**/Containerfile.*') }}
+          cache-bust: ${{ hashFiles('Containerfile.homelab', 'build/2*-server-*.sh', 'build/30-k0s.sh', 'build/35-kc-agent.sh') }}
 
-      # OPTIONAL: Set ENABLE_RECHUNKING to "true" above to optimize OTA deltas.
-      # This uses OCI-native chunkah and does not require bootc-base-imagectl.
-      - name: Rechunk image
-        if: env.ENABLE_RECHUNKING == 'true'
-        id: rechunk-image
-        uses: projectbluefin/actions/bootc-build/chunka@ae7d740d261d56354aeaf0a72af6f87e442e0472 # v1
-        with:
-          source-image: localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
-          max-layers: ${{ env.RECHUNK_MAX_LAYERS }}
-
+      # No rootful-load step here, and that is deliberate: build-image.yml does
+      # not have one either, and podman push is done by the upstream
+      # push-image action rather than by the local `just` recipes. Adding a load
+      # step would only duplicate what that action already does from the
+      # rootless image just built.
       - name: Tag images
         shell: bash
         env:
           ALIAS_TAGS: ${{ steps.branch-tags.outputs.tags }}
         run: |
           sudo -E "$(command -v just)" tag-images "${IMAGE_NAME}" \
-                          "${DEFAULT_TAG}" \
-                          "${ALIAS_TAGS}"
+            "${DEFAULT_TAG}" "${ALIAS_TAGS}"
 
       # Every build here is a candidate build from main and publishes tags.
       # execute-release.yml promotes the signed, gated candidate digest to
       # :stable without a stable-branch rebuild, so the upstream push-image
-      # action owns all registry authentication and pushing.
+      # action owns all registry authentication and pushing. This is why the
+      # step below is push-image rather than the older push action: it returns
+      # the digest that sign-and-publish has to sign.
 
       - name: Push to GHCR
         id: push
@@ -230,12 +214,11 @@ jobs:
           default-tag: ${{ steps.branch-tags.outputs.default-tag }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Sign and attest (SLSA Build L2 provenance)
-      # Bluefin pattern: keyless OIDC signing via Fulcio.
-      # Requires 'id-token: write' permission (granted above).
-      # Signing failures do not block candidate publication, but the release
-      # gate rejects an unsigned candidate and preserves the prior :stable.
-
+      # Keyless OIDC signing via Fulcio, matching build-image.yml. Requires the
+      # id-token: write permission granted at the top.
+      #
+      # Signing failures do not block candidate publication, but the release gate
+      # rejects an unsigned candidate and preserves the prior :stable.
       - name: Sign and publish
         continue-on-error: true
         uses: projectbluefin/actions/bootc-build/sign-and-publish@ae7d740d261d56354aeaf0a72af6f87e442e0472 # v1
@@ -245,6 +228,9 @@ jobs:
           signing-mode: keyless
           generate-sbom: false
           push-attestation: true
+          # Scoped with github.repository, not repository_owner, for the reason
+          # the ci skill records: matching the owner accepts a signature minted
+          # by any repository in the org.
           certificate-identity-regexp: https://github.com/${{ github.repository }}/.github/workflows/
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -260,6 +246,9 @@ jobs:
           {
             echo "## Build Telemetry: ${{ env.IMAGE_NAME }}"
             echo ""
+            echo "**Flavor:** homelab (Containerfile.homelab)"
+            echo ""
             echo "**Image size (uncompressed):** ${IMAGE_SIZE_MB} MB"
+            echo ""
             echo "**Layer count:** ${LAYER_COUNT}"
           } >> "$GITHUB_STEP_SUMMARY"

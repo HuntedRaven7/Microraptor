@@ -11,7 +11,8 @@ description: >-
 
 | Workflow | Trigger | Does |
 |---|---|---|
-| `build-image.yml` | push to `main` or `stable`, dispatch | Builds, signs, and pushes the image. |
+| `build-image.yml` | push to `main` or `stable`, dispatch | Builds, signs, and pushes the **workstation** image. |
+| `build-homelab-image.yml` | push to `main`, dispatch | The same for the **homelab** image. Not yet promoted. |
 | `execute-release.yml` | push to `stable` | Promotes the candidate digest. Does not rebuild. |
 | `promote-main-to-stable.yml` | daily schedule, dispatch | Opens the squash promotion PR and runs the release gate on it. |
 | `sync-stable-to-main.yml` | push to `stable` | Merges `stable` hotfixes back into `main`. |
@@ -32,6 +33,25 @@ Most are thin callers of reusable workflows in `projectbluefin/actions`.
 squash PR from `main` to `stable`, and `execute-release.yml` copies the digest
 `:testing` resolves to. The README owns the release table and the promotion
 gate's current limits.
+
+**Promotion is per-repository, not per-image.** `execute-release.yml` resolves one
+candidate digest, and today that is the workstation image's. `build-homelab-image.yml`
+publishes `:testing` and `:stable-testing` for `microraptor-homelab` but is not
+promoted, so its `:stable` will not exist until that workflow grows an input
+naming which image it is promoting. Without one, the second image silently stops
+being released — it still builds and still pushes testing tags, so nothing looks
+broken.
+
+The two build workflows are separate files rather than a matrix row because
+`IMAGE_NAME` is derived differently in each: the workstation takes it from
+`github.event.repository.name`, which is right for a repository whose one image is
+named after the repository. The homelab image's name is a literal. Deriving both
+from one expression would have renamed the workstation image the day a second
+image was added.
+
+The two images' dnf caches are keyed separately and their `cache-bust` globs are
+scoped to their own Containerfile and phases, so editing one does not invalidate
+the other's.
 
 The factory reusable puts its release gate and its auto-merge enrollment behind
 one input, `enqueue_promotion`. A personal repository cannot enroll — there is no
