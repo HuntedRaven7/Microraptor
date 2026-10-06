@@ -89,7 +89,14 @@ COPY --from=common /system_files /oci/common
 ##
 ## trailing whitespace: `just build` parses this line for the base tag and the base
 ## image name, and a malformed line makes it exit rather than guess.
-FROM quay.io/hummingbird-community/bootc-os:latest@sha256:fcbd6c30452076312525ca166df9a1f1dbd9f97347a5ad80c52a55cbcd526525
+##
+## Kept byte-identical to the line in Containerfile.workstation. Both images resolve
+## the same RPMs, so a package installed in one is the same build as in the other --
+## and that only holds while the two digests match. Renovate bumps the workstation's
+## copy and will not touch this one, so these two lines are a pair that has to move
+## together. tests/template/flavours_test.bats fails when they diverge, which it did
+## the first time the workstation's digest was bumped without this one.
+FROM quay.io/hummingbird-community/bootc-os:latest@sha256:4ececc14324a9ce98be40ddc4197a7ffb855394cea38b0f47330be80a6937873
 
 # Image identity - these define how bootc, fastfetch, and the ublue ecosystem
 # recognize your image.

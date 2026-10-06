@@ -283,16 +283,34 @@ build $target_image=IMAGE_NAME $tag=DEFAULT_TAG $flavor=DEFAULT_FLAVOR:
 # exists is that the flavour name has to be written somewhere: typing the third
 # argument is the kind of step that gets forgotten, and forgetting it silently
 # builds the workstation instead of failing.
+#
+# `{{just_executable()}}` rather than a bare `just`, and this is not a style
+# preference. CI invokes the recipe as `sudo -E "$(command -v just)" ...`, and a
+# recipe that shells out to `just` by name gets the sudo-reset PATH instead of
+# the one that invocation was built from. The result is
+#
+#   sh: 1: just: not found
+#   error: recipe `build-homelab` failed on line 295 with exit code 127
+#
+# which points at the Justfile rather than at the environment that caused it.
+# just_executable() is interpolated by just itself and yields the absolute path of
+# the running binary, so the nested call resolves the same way the outer one did.
+# It exists in just 1.58; `just_exe()` does NOT and fails at parse time.
 [group('Image')]
 build-workstation $target_image=IMAGE_NAME $tag=DEFAULT_TAG:
-    @just build "${target_image}" "${tag}" workstation
+    @{{ just_executable() }} build "${target_image}" "${tag}" workstation
 
 # Build the homelab image: Hummingbird base, no desktop, k0s and KubeStellar.
 # Named separately from `build` because the image name differs too, and CI needs
 # both the flavour and the name to agree.
+#
+# Note that build-homelab-image.yml deliberately does NOT call this recipe. It
+# calls `build` with the flavour as its third argument instead, because a nested
+# just invocation is one more thing to go wrong in CI; this wrapper is for local
+# convenience.
 [group('Image')]
 build-homelab $target_image=HOMELAB_IMAGE_NAME $tag=DEFAULT_TAG:
-    @just build "${target_image}" "${tag}" homelab
+    @{{ just_executable() }} build "${target_image}" "${tag}" homelab
 
 # Tag images with the generated alias tags
 # Bluefin pattern: separate tagging from pushing

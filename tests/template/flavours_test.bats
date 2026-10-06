@@ -88,7 +88,10 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 	# workflow, and the two have to agree.
 	grep -qE '^export HOMELAB_IMAGE_NAME := env\("HOMELAB_IMAGE_NAME", "microraptor-homelab"\)' "${REPO_ROOT}/Justfile"
 	grep -qE '^build-homelab \$target_image=HOMELAB_IMAGE_NAME \$tag=DEFAULT_TAG:' "${REPO_ROOT}/Justfile"
-	grep -qE 'just build "\$\{target_image\}" "\$\{tag\}" homelab' "${REPO_ROOT}/Justfile"
+	# Spacing inside the interpolation is deliberately not pinned: `just --fmt` rewrites
+	# `{{just_executable()}}` to `{{ just_executable() }}`, so an exact-string match
+	# here would fail every time anyone formats the Justfile.
+	grep -qE '\{\{ *just_executable\(\) *\}\} build "\$\{target_image\}" "\$\{tag\}" homelab' "${REPO_ROOT}/Justfile"
 }
 
 @test "flavours: an unknown flavour fails before podman is invoked" {
@@ -151,18 +154,62 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 	grep -qE "hashFiles\('\*\*/Containerfile\.\*'\)" "${REPO_ROOT}/.github/workflows/build-image.yml"
 }
 
-@test "flavours: the homelab workflow builds the homelab recipe" {
+@test "flavours: the homelab workflow builds with the flavour, not a nested just" {
 	local wf="${REPO_ROOT}/.github/workflows/build-homelab-image.yml"
 	[ -f "${wf}" ]
-	# Matched as `command -v just)" build-homelab` rather than `just build-homelab`
-	# because the recipe is invoked through just's resolved path, exactly as
-	# build-image.yml does.
-	grep -qF 'just)" build-homelab' "${wf}"
+	# The flavour is `build`'s third argument.
+	grep -qF 'just)" build "${IMAGE_NAME}" "${DEFAULT_TAG}" homelab' "${wf}"
+
+	# And the workflow must NOT call the build-homelab wrapper. That recipe shells
+	# out to `just` by name, and under `sudo -E` a recipe gets sudo's reset PATH
+	# rather than the one "$(command -v just)" was resolved from -- so the nested
+	# call fails with:
+	#
+	#   sh: 1: just: not found
+	#   error: recipe `build-homelab` failed ... with exit code 127
+	#
+	# which names the Justfile and not the environment that caused it. Caught in
+	# CI after it shipped, which is the reason it is asserted here.
+	run grep -cF 'just)" build-homelab' "${wf}"
+	[ "$output" -eq 0 ]
+
 	# And it does not derive the image name from the repository, which would
 	# collide with the workstation image.
 	grep -qE 'IMAGE_NAME: "microraptor-homelab"' "${wf}"
 	run grep -cE 'IMAGE_NAME: "\$\{\{ github\.event\.repository\.name \}\}"' "${wf}"
 	[ "$output" -eq 0 ]
+}
+
+@test "flavours: the wrapper recipes resolve just by absolute path" {
+	# Same failure as above, one layer in. Under sudo, a bare `just` inside a
+	# recipe is not on PATH; `{{just_executable()}}` is interpolated by just itself
+	# and yields the absolute path of the running binary.
+	#
+	# `just_exe()` is the name people reach for and it does not exist -- it fails
+	# at parse time with "call to undefined function", taking every recipe in the
+	# file with it. Asserted on the function that works in just 1.58.
+	local recipe
+	for recipe in build-workstation build-homelab; do
+		# Whitespace-tolerant, because `just --fmt` normalises the interpolation to
+		# `{{ just_executable() }}` and an exact match breaks on the next format.
+		grep -A3 -E "^${recipe} " "${REPO_ROOT}/Justfile" |
+			grep -qE '\{\{ *just_executable\(\) *\}\}' || {
+			echo "${recipe} shells out to a bare just; it will fail under sudo" >&2
+			return 1
+		}
+	done
+	# And the function that does not exist must not have crept back into a recipe.
+	# Comment lines are excluded, because the comment explaining the trap names it
+	# on purpose -- and an assertion that trips on its own documentation gets
+	# deleted rather than fixed.
+	#
+	# Counted with a command substitution rather than `run ... | grep -c`: run
+	# captures the pipeline's stdout and the pipeline's status is grep's, so a
+	# no-match result reports as a failed run with "0" as its output, which reads
+	# like an assertion failure rather than the success it is.
+	local bad_lines
+	bad_lines=$(grep -vE '^[[:space:]]*#' "${REPO_ROOT}/Justfile" | grep -c 'just_exe()' || true)
+	[ "${bad_lines}" -eq 0 ]
 }
 
 @test "flavours: the homelab workflow signs with the repository-scoped identity" {

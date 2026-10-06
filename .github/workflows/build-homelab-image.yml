@@ -119,8 +119,16 @@ jobs:
           timeout_minutes: 120
           max_attempts: 3
           retry_wait_seconds: 300
+          # `build` with the flavour as its third argument, NOT `build-homelab`.
+          #
+          # The wrapper recipe would shell out to `just` by name, and under
+          # `sudo -E` a recipe inherits sudo's reset PATH rather than the one
+          # "$(command -v just)" was resolved from -- so the nested call fails
+          # with "sh: 1: just: not found" and exit 127. Passing the flavour
+          # directly keeps CI to a single just invocation, which is the same reason
+          # build-image.yml calls `build` with two arguments.
           command: |
-            sudo -E "$(command -v just)" build-homelab "${IMAGE_NAME}" "${DEFAULT_TAG}"
+            sudo -E "$(command -v just)" build "${IMAGE_NAME}" "${DEFAULT_TAG}" homelab
 
       - name: Get version label
         id: version
