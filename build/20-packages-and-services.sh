@@ -174,6 +174,7 @@ utah_packages=(
   NetworkManager-config-connectivity-fedora
   NetworkManager-wifi
   NetworkManager-wwan
+  kitty
   wpa_supplicant
   iw
   wireless-regdb
