@@ -74,10 +74,10 @@ echo "::endgroup::"
 ###############################################################################
 # Wayland desktop
 #
-# A MangoWM session on SDDM. Nothing here configures MangoWM: the compositor, the
-# display manager and the session file the RPMs provide are the whole
-# deliverable. A session that exits immediately until you supply a configuration
-# is a runtime concern, not a build one.
+# A MangoWM session on ly. Nothing here configures MangoWM or ly: the
+# compositor, the display manager and the session file the RPMs provide are the
+# whole deliverable. A session that exits immediately until you supply a
+# configuration is a runtime concern, not a build one.
 #
 # Sources, and why each one:
 #
@@ -215,7 +215,6 @@ utah_packages=(
   alsa-ucm
   alsa-utils
   pipewire-alsa
-  gdm
   pipewire-utils
   wireplumber
   xdg-desktop-portal
@@ -258,12 +257,38 @@ dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y "${utah_packages[@]}"
 
 echo "::endgroup::"
 
-echo "::group:: Install SDDM and Tailscale"
+echo "::group:: Install ly and Tailscale"
 
-# Both are in Fedora 44 proper. Tailscale is not a third-party repository
-# dependency on this base, which is worth stating because the 30-tailscale
-# example in build/ adds one.
-dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y tailscale
+# Both are in Fedora 44 proper. Neither needs a third-party repository, which is
+# worth stating for ly in particular: it is the kind of package that looks like it
+# would need a COPR, because upstream publishes no RPM and the dist-git spec
+# builds it from a Zig tarball. Fedora does package it (ly-1.4.0-2.fc44, shipped
+# in F44 Updates), so this transaction stays repository-less. Tailscale is not a
+# third-party repository dependency on this base either, which is worth stating
+# because the 30-tailscale example in build/ adds one.
+#
+# ly is the display manager. It replaces GDM, which this phase used to install:
+# ly is 1.9 MiB installed, against a GDM that pulls GNOME's session stack with
+# it, and an image whose only session is a compositor has nothing to gain from a
+# display manager that also ships a desktop.
+#
+# What is NOT installed with it, and why that is deliberate: the Fedora runtime
+# dependencies in upstream's README are xorg, xorg-x11-server and
+# xorg-x11-xauth. Those are for launching X11 sessions, and this image's only
+# session is MangoWM on Wayland, so there is no X11 session for them to launch.
+# The one weak dependency ly does carry is brightnessctl, and the Containerfile
+# sets install_weak_deps=0, so it is not pulled in either. ly's RPM requires none
+# of them, so nothing drags them back in transitively -- a transaction on Fedora
+# 44 with install_weak_deps=0 resolves to ly and eight base packages (util-linux,
+# policycoreutils, libxcb and friends), and nothing else.
+#
+# SELinux: the spec's %post labels /usr/bin/ly xdm_exec_t with semanage, and the
+# README documents the process-transition denial that a first login can still hit
+# (#494). That is a runtime policy concern -- there is no SELinux policy loaded
+# during a container build for a module to be compiled against -- so it is not
+# papered over here with an --allownonexec or a permissive toggle. A local module
+# is a per-machine fix and belongs to the user who hits it.
+dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y ly tailscale
 
 echo "::endgroup::"
 
@@ -400,10 +425,37 @@ echo "::group:: Enable desktop services"
 # that disables everything it does not name, so an explicit enable is the only
 # thing that survives it.
 #
-# arrangement. It has no session to offer until the user supplies a MangoWM
-# configuration, which is expected: this image ships the compositor, not a
-# desktop.
-systemctl enable gdm.service
+# The display manager. ly ships ly@.service as a *template* and no plain
+# ly.service, so `systemctl enable ly.service` fails outright -- there is no unit
+# file by that name to enable. The instance is named explicitly for the same
+# reason the template carries DefaultInstance=tty2: naming it makes the tty a
+# property of this image rather than of whichever instance systemd would guess.
+#
+# tty1, because that is the VT a display manager is expected to own and the one
+# GDM owned before the swap, so the graphical login stays where it was.
+#
+# getty on the same tty is left enabled deliberately, which contradicts upstream's
+# README ("you must disable the TTY service that Ly will run on, otherwise bad
+# things will happen"). The README predates the unit's own Conflicts=getty@%i
+# directive, and Fedora's own GDM service resolves the identical conflict the
+# same way -- Conflicts=getty@tty1.service and no mask. Masking would also remove
+# the fallback login on tty1, which is the only recovery path if ly itself will
+# not start. Conflict handling belongs to the unit; the image does not second-guess
+# it with a mask that outlives the reason for it.
+#
+# ly has no session to offer until the user supplies a MangoWM configuration,
+# which is expected: this image ships the compositor, not a desktop.
+systemctl enable ly@tty1.service
+
+# Belt and braces for the swap, and the reason this uses disable_unit rather than
+# a bare systemctl disable. GDM is no longer named in any transaction above, so
+# on this base the unit does not exist and this is a no-op. It stays because the
+# RPM could still arrive -- a base that ships a desktop, or a future dependency
+# that pulls gdm in -- and a display manager that is merely installed but no
+# longer enabled is the failure mode that is easy to miss on a machine with two
+# of them. disable_unit is guarded on the unit existing, so it cannot fail the
+# build over an absent RPM.
+disable_unit gdm.service
 
 enable_unit bluetooth.service
 enable_unit systemd-resolved.service

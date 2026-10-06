@@ -116,6 +116,27 @@ and the reason out loud before installing it, so the user can overrule.
 per-machine download, a licence click, or a keyring is not ready at build time.
 Install it, document the enable step, leave the unit alone.
 
+**A display manager's unit may be a template, and there may be no bare unit to
+enable.** `ly` ships `ly@.service` and `ly-kmsconvt@.service` and nothing called
+`ly.service`, so `systemctl enable ly.service` fails outright — there is no unit
+file by that name. Enable the instance (`ly@tty1.service`) and name the tty
+explicitly: the template sets `DefaultInstance=tty2`, so an unnamed enable lands
+the login on tty2 and leaves tty1 running a getty.
+
+Check `%post` and the unit's `[Unit]` section before writing the enable line.
+
+- Upstream's README may say you must disable the getty on the same tty. Read the
+  unit first: `ly@.service` carries `Conflicts=getty@%i.service`, which is how
+  Fedora's own GDM resolves the identical conflict, so no mask is needed and
+  masking would only remove the fallback login.
+- `Conflicts=` between two display managers is the normal case, but a unit that is
+  *installed* while another is *enabled* boots with two of them. When swapping one
+  out, disable the old unit with `disable_unit`, which is guarded on the unit
+  existing so it is a no-op on a base that never had it.
+- Test for the instance and not the bare name. `grep -cE '^enable NAME(@[a-z0-9]+)?\.service$'`
+  asserting exactly one catches both a bare-name regression and enabling both
+  units at once.
+
 ### Homebrew
 
 Brewfiles in `custom/brew/`, plus a `ujust` recipe so users install it by name.

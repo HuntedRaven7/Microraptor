@@ -172,7 +172,7 @@ teardown() {
 	[[ "$output" == *"::group:: Install Default Packages"* ]]
 	[[ "$output" == *"::group:: Install uupd"* ]]
 	[[ "$output" == *"::group:: Install the audio stack"* ]]
-	[[ "$output" == *"::group:: Install SDDM and Tailscale"* ]]
+	[[ "$output" == *"::group:: Install ly and Tailscale"* ]]
 	[[ "$output" == *"::group:: Install Ghostty and MangoWM from Terra"* ]]
 	[[ "$output" == *"::group:: Install Voxtype from its release RPM"* ]]
 	[[ "$output" == *"::group:: Enable desktop services"* ]]
@@ -215,9 +215,10 @@ teardown() {
 }
 
 @test "20-packages-and-services: installs the audio stack in one transaction" {
-	# PipeWire and friends have to be named: neither SDDM nor MangoWM depends on
-	# a sound server, and this base has no GNOME or Plasma pulling one in. An
-	# installed system with no audio at all is the failure this prevents.
+	# PipeWire and friends have to be named: neither the display manager nor
+	# MangoWM depends on a sound server, and this base has no GNOME or Plasma
+	# pulling one in. An installed system with no audio at all is the failure this
+	# prevents.
 	run bash "${SCRIPT}"
 	[ "$status" -eq 0 ]
 
@@ -243,13 +244,15 @@ teardown() {
 }
 
 @test "20-packages-and-services: installs the desktop set from the expected sources" {
-	# sddm and tailscale come from Fedora proper, not a third-party repository.
+	# ly and tailscale come from Fedora proper, not a third-party repository.
 	# Asserting the repo-less call is the point: it is what stops a later edit
-	# from quietly adding a repository for something Fedora already ships.
+	# from quietly adding a repository for something Fedora already ships. ly in
+	# particular looks like it would need a COPR, because upstream ships no RPM --
+	# Fedora 44 packages it (ly-1.4.0-2.fc44 in F44 Updates) all the same.
 	run bash "${SCRIPT}"
 	[ "$status" -eq 0 ]
 
-	grep -q 'install -y sddm tailscale' "${DNF5_LOG}"
+	grep -qx 'install -y ly tailscale' "${DNF5_LOG}"
 	grep -qx 'install -y ghostty mangowm' "${DNF5_LOG}"
 }
 
@@ -368,8 +371,77 @@ teardown() {
 	run bash "${SCRIPT}"
 	[ "$status" -eq 0 ]
 
-	grep -qx 'enable sddm.service' "${SYSTEMCTL_LOG}"
+	grep -qx 'enable ly@tty1.service' "${SYSTEMCTL_LOG}"
 	grep -qx 'enable tailscaled.service' "${SYSTEMCTL_LOG}"
+}
+
+@test "20-packages-and-services: enables a ly instance, never a bare ly.service" {
+	# ly ships ly@.service as a template and no ly.service at all, so enabling the
+	# bare name fails at build time with "unit file does not exist" rather than
+	# shipping a machine with no login screen. The instance also has to be named:
+	# the template sets DefaultInstance=tty2, so an unnamed enable would put the
+	# login on tty2 and leave tty1 running a getty.
+	#
+	# Asserted as a pattern rather than a plain grep -v so it also catches an edit
+	# that enables the instance *and* something else ly-shaped -- both units at
+	# once would leave two TUI logins fighting over the VT.
+	run bash "${SCRIPT}"
+	[ "$status" -eq 0 ]
+
+	run grep -cE '^enable ly(@[a-z0-9]+)?\.service$' "${SYSTEMCTL_LOG}"
+	[ "$output" -eq 1 ]
+	run grep -qx 'enable ly.service' "${SYSTEMCTL_LOG}"
+	[ "$status" -ne 0 ]
+}
+
+@test "20-packages-and-services: installs and enables no GDM" {
+	# The swap off GDM is the reason the display manager group exists. Two
+	# separate failure modes, so two assertions: the RPM still being requested
+	# would put GNOME's session stack back in the image, and the unit still being
+	# enabled would leave two display managers on a machine.
+	#
+	# disable_unit gdm.service is expected and is not what this guards -- it is a
+	# no-op on a base that does not ship gdm, and it is what the next test covers.
+	run bash "${SCRIPT}"
+	[ "$status" -eq 0 ]
+
+	run grep -cE '(^|[[:space:]])gdm([[:space:]]|$)' "${DNF5_LOG}"
+	[ "$output" -eq 0 ]
+	run grep -cx 'enable gdm.service' "${SYSTEMCTL_LOG}"
+	[ "$status" -ne 0 ]
+}
+
+@test "20-packages-and-services: disables gdm rather than failing when it is absent" {
+	# gdm is no longer named in any transaction, so on this base the unit does not
+	# exist. The guarded helper is what keeps that a no-op instead of a build
+	# failure: unit_exists returns false, the disable is skipped, and the phase
+	# carries on. It is also the only reason the swap is safe on a base that does
+	# still ship gdm, where the disable has to actually happen.
+	#
+	# systemctl cat is what unit_exists tests, and the stub above answers every
+	# `systemctl` call with success -- so this exercises the guard against the
+	# stub reporting the unit as absent, which is the branch the real base takes.
+	cat >"${STUB_BIN}/systemctl" <<'EOF'
+#!/usr/bin/bash
+printf '%s\n' "$*" >> "${SYSTEMCTL_LOG}"
+# Only ly's units exist, matching a base that does not ship gdm.
+if [ "$1" = "cat" ]; then
+	case "$2" in
+	ly@*.service) exit 0 ;;
+	*) exit 1 ;;
+	esac
+fi
+exit 0
+EOF
+	chmod +x "${STUB_BIN}/systemctl"
+
+	run bash "${SCRIPT}"
+	[ "$status" -eq 0 ]
+
+	# The disable was attempted, and nothing else went wrong because the unit was
+	# not there -- the phase still closed the Utah factory at the end.
+	grep -qx 'cat gdm.service' "${SYSTEMCTL_LOG}"
+	[[ "$output" == *"utah-packages: enabled=0"* ]]
 }
 
 @test "20-packages-and-services: names an explicit COPR chroot when the base needs one" {
@@ -410,7 +482,7 @@ teardown() {
 	[ "$status" -eq 0 ]
 
 	local unit
-	for unit in sddm.service tailscaled.service uupd.timer uupd-resume.timer; do
+	for unit in ly@tty1.service tailscaled.service uupd.timer uupd-resume.timer; do
 		[ "$(grep -cx "enable ${unit}" "${SYSTEMCTL_LOG}")" -eq 1 ]
 	done
 }
