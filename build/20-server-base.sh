@@ -31,6 +31,13 @@ set -euo pipefail
 # shellcheck source=/dev/null
 source /ctx/build/copr-helpers.sh
 
+if [ -f /usr/lib/systemd/logind.conf ]; then
+  sed -i 's/^#HandleLidSwitch=.*/HandleLidSwitch=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
+  sed -i 's/^#HandleLidSwitchDocked=.*/HandleLidSwitchDocked=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
+  sed -i 's/^#HandleLidSwitchExternalPower=.*/HandleLidSwitchExternalPower=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
+  sed -i 's/^#SleepOperation=.*/SleepOperation=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
+fi
+
 # Enable nullglob for all glob operations to prevent failures on empty matches
 shopt -s nullglob
 
