@@ -96,7 +96,7 @@ COPY --from=common /system_files /oci/common
 ## copy and will not touch this one, so these two lines are a pair that has to move
 ## together. tests/template/flavours_test.bats fails when they diverge, which it did
 ## the first time the workstation's digest was bumped without this one.
-FROM quay.io/hummingbird-community/bootc-os:latest@sha256:4ececc14324a9ce98be40ddc4197a7ffb855394cea38b0f47330be80a6937873
+FROM gchr.io/ublue-os/base-main:44
 
 # Image identity - these define how bootc, fastfetch, and the ublue ecosystem
 # recognize your image.
@@ -148,7 +148,7 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=tmpfs,dst=/boot \
     --mount=type=tmpfs,dst=/tmp \
     install -d -m0755 /etc/yum.repos.d /etc/pki/rpm-gpg \
-    && install -m0644 /ctx/packages/fedora.repo /ctx/packages/utah.repo /etc/yum.repos.d/ \
+    && install -m0644 /etc/yum.repos.d/ \
     && install -m0644 /ctx/packages/RPM-GPG-KEY-fedora-44-primary /etc/pki/rpm-gpg/ \
     && . /ctx/build/dnf5-retry.sh \
     && dnf5_retry 12 install -y dnf5-plugins rsync \
