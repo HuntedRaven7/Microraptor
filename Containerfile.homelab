@@ -96,7 +96,7 @@ COPY --from=common /system_files /oci/common
 ## copy and will not touch this one, so these two lines are a pair that has to move
 ## together. tests/template/flavours_test.bats fails when they diverge, which it did
 ## the first time the workstation's digest was bumped without this one.
-FROM gchr.io/ublue-os/base-main:44
+FROM ghcr.io/ublue-os/base-main:latest
 
 # Image identity - these define how bootc, fastfetch, and the ublue ecosystem
 # recognize your image.
