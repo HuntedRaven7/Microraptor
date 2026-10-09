@@ -45,7 +45,7 @@ set -euo pipefail
 source /ctx/build/dnf5-retry.sh
 
 echo "::group:: Install k0s from a pinned release binary"
-
+rm -rf /opt 
 # One variable derives the URL, so the version and the digest cannot disagree
 # about which release is meant. Only the digest has to be recomputed on a bump,
 # and upstream's sha256sums.txt can do it:
