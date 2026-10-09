@@ -179,33 +179,5 @@ systemctl enable chronyd.service
 
 echo "::endgroup::"
 
-echo "::group:: Finalise the Utah package factory"
-
-# Closed here for the same reason 20-packages-and-services.sh closes it: the
-# factory's file:///etc/utah-packages baseurl only exists while the bind mount
-# does, and 90-cleanup.sh closes it too. Both, because a live repository whose
-# baseurl is a path that will not resolve is exactly the thing that makes every
-# later dnf5 call noisy.
-#
-# utah.repo arrives enabled=1 because that is how the Containerfile leaves it.
-# This phase is the last thing in this image's build that runs dnf5, so this is
-# the last point at which it can be closed without leaving a window.
-#
-# Guarded, because the file is copied in by the Containerfile and must be there,
-# and failing the build when it is not beats shipping a live repository.
-if [[ -f /etc/yum.repos.d/utah.repo ]]; then
-  sed -i 's/^enabled=1$/enabled=0/' /etc/yum.repos.d/utah.repo
-  if grep -qE '^enabled=1' /etc/yum.repos.d/utah.repo; then
-    echo "::error::utah-packages is still enabled in /etc/yum.repos.d/utah.repo" >&2
-    exit 1
-  fi
-  echo "utah-packages: enabled=0 (the factory mount does not survive this phase)"
-else
-  echo "::error::/etc/yum.repos.d/utah.repo is missing; cannot close the package factory" >&2
-  exit 1
-fi
-
-echo "::endgroup::"
-
 # Restore default glob behavior
 shopt -u nullglob
