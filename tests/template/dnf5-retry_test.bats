@@ -184,13 +184,62 @@ run_retry() {
 	[ "$status" -eq 0 ]
 }
 
-@test "dnf5-retry: the attempt count is defined in copr-helpers.sh with a default" {
-	# The package phase reads DNF5_RETRY_ATTEMPTS, so copr-helpers.sh is what has
-	# to define it -- a caller that sources only dnf5-retry.sh gets the function
-	# but not the count.
+@test "dnf5-retry: the attempt count is defaulted in the file that defines the function" {
+	# It used to be defaulted in copr-helpers.sh instead, and this test asserted
+	# that, which cemented the mistake instead of catching it.
+	#
+	# The variable is the only knob dnf5_retry has, and this file is the one that
+	# defines dnf5_retry, so this is where a caller gets a value. A phase that
+	# sources only dnf5-retry.sh -- because it needs no COPR -- got the function
+	# and not the count, and died in the image with:
+	#
+	#   line 41: DNF5_RETRY_ATTEMPTS: unbound variable
+	#
+	# `set -u` was right about it. The unit suites could not see it either, because
+	# they all export DNF5_RETRY_ATTEMPTS themselves to keep the retry loops fast.
 	run grep -qE '^DNF5_RETRY_ATTEMPTS="\$\{DNF5_RETRY_ATTEMPTS:-[0-9]+\}"$' \
-		"${SCRIPT_DIR}/../../build/copr-helpers.sh"
+		"${SCRIPT_DIR}/../../build/dnf5-retry.sh"
 	[ "$status" -eq 0 ]
+}
+
+@test "dnf5-retry: sourcing it alone yields a usable attempt count" {
+	# Behavioural, to complement the grep above: that proves a default exists, this
+	# proves a caller that sources only this file can actually use it. A grep cannot
+	# tell a reachable default from one shadowed later in the file.
+	#
+	# The variable is unset in the environment first, so an inherited value from
+	# the test runner cannot stand in for the default and make this pass vacuously.
+	run env -u DNF5_RETRY_ATTEMPTS bash -c \
+		'set -euo pipefail; source "$1"; printf "attempts=%s\n" "${DNF5_RETRY_ATTEMPTS}"' \
+		_ "${SCRIPT_DIR}/../../build/dnf5-retry.sh"
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"attempts="* ]]
+	# Not empty: an empty expansion is the failure this guards, and `[ "$output" ==
+	# *"attempts="* ]` alone would pass on it.
+	[[ "$output" =~ attempts=([0-9]+) ]]
+	[ "${BASH_REMATCH[1]}" -ge 1 ]
+}
+
+@test "dnf5-retry: every phase that calls dnf5_retry can reach an attempt count" {
+	# The structural guard for the whole class of bug. A phase is fine if it
+	# sources dnf5-retry.sh, or copr-helpers.sh (which sources it), or defaults
+	# the variable itself -- which is what 30-kernel.sh and 40-nvidia.sh do.
+	#
+	# Discovered by scanning build/ rather than from a hand-kept list, so a phase
+	# written today that forgets is caught today rather than at the next
+	# `just build`, which is where this surfaced.
+	local phase uses reachable
+	while IFS= read -r phase; do
+		[[ -n "${phase}" ]] || continue
+		uses=$(grep -cE 'dnf5_retry "\$\{DNF5_RETRY_ATTEMPTS\}"' "${phase}" || true)
+		[ "${uses}" -gt 0 ] || continue
+
+		reachable=$(grep -cE 'source .*(dnf5-retry|copr-helpers)\.sh|^DNF5_RETRY_ATTEMPTS=' "${phase}" || true)
+		if [ "${reachable}" -eq 0 ]; then
+			echo "$(basename "${phase}") calls dnf5_retry but reaches no DNF5_RETRY_ATTEMPTS default" >&2
+			return 1
+		fi
+	done < <(find "${SCRIPT_DIR}/../../build" -maxdepth 1 -type f -name '*.sh' | sort)
 }
 
 @test "dnf5-retry: rejects a non-numeric attempt count" {

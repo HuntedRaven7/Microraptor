@@ -10,8 +10,15 @@ description: >-
 
 ## The Containerfile
 
-It is the source of truth for image assembly, and it is written to be read. Its
-structure, in order:
+There are two: `Containerfile.workstation` and `Containerfile.homelab`. The
+flavour is the third argument to `build`, the Containerfile is
+`Containerfile.<flavor>`, and it is always passed with `-f`. `podman build .`
+with no `-f` looks for a file literally called `Containerfile`, and there is no
+longer one — so leaving `-f` off fails with "no Containerfile found" and names
+neither file. `workstation` is the default so the two-argument CI call still
+works.
+
+Structure, in order:
 
 1. **Identity** — `ARG IMAGE_NAME`, `IMAGE_VENDOR`, `UBLUE_IMAGE_TAG`, and the
    `# Name:` comment. The name actually published is the repository name; these
@@ -48,6 +55,30 @@ the repository name.
 Every OCI reference is pinned by digest and updated by Renovate: the base image,
 `projectbluefin/common`, `ublue-os/brew`, `bootc-image-builder`, and the GitHub
 Actions. Do not hand-edit a digest; let Renovate propose it.
+
+Renovate cannot help with a binary that has no repository, and one artifact here
+is worse than the others for that reason: **`kc-agent` is a nightly.**
+`kubestellar/console` publishes only `vX.Y.Z-nightly.DATE` tags, all marked
+prerelease, so there is no stable to move to and no upstream signal about when a
+bump matters. The tag is dated and therefore does not rot on its own, but the
+image carries a prerelease nobody will patch. `build/35-kc-agent.sh` documents
+this at the pin. If a stable release ever appears, move it to Renovate.
+
+### Glob patterns silently match nothing
+
+Three of these were broken by the two-Containerfile rename and all three failed
+quietly rather than loudly:
+
+- `hashFiles('**/Containerfile')` in a workflow's dnf-cache `cache-bust` stops
+  matching. Builds stay **correct** and get slower; nothing logs a warning.
+- `dockerfile: "Containerfile"` for hadolint stops matching. PR validation lints
+  nothing and is still green.
+- An `org.opencontainers.image.source` label naming `.../blob/main/Containerfile`
+  is a 404 on every image ever built from that commit.
+
+The pattern to use is `Containerfile.*`, and the tests in
+`tests/template/flavours_test.bats` assert each of these so the next rename cannot
+reintroduce them.
 
 **Resolve a digest for the platform you build, not from the manifest list.**
 `skopeo inspect --raw` returns the index, and the per-platform entries inside it

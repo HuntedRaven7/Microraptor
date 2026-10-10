@@ -53,6 +53,10 @@ echo "::group:: Remove GNOME"
 # /usr/share/wayland-sessions. Leaving them behind would keep offering GNOME
 # sessions at the login screen that can no longer start. mutter and gnome-session
 # are removed too: without them nothing is left that could try to bring GNOME up.
+#
+# gdm is not in this list. 20-packages-and-services.sh stopped installing it when
+# the display manager became ly, so on this image the package is already absent
+# and naming it here would only add a line that removes nothing.
 dnf5 remove -y \
 	gnome-shell \
 	"gnome-shell-extension*" \
@@ -62,16 +66,25 @@ dnf5 remove -y \
 	gnome-classic-session \
 	gnome-control-center \
 	gnome-software \
-	nautilus \
-	gdm
+	nautilus
 
 echo "::endgroup::"
 
 echo "::group:: Switch the display manager"
 
-# gdm was removed above, so COSMIC's greeter takes over the display-manager
-# alias. cosmic-session already ships /usr/share/wayland-sessions/cosmic.desktop,
-# so there is no session file to write by hand.
+# Both the disable and the enable name an instance, because ly@.service is a
+# template: `ly@tty1.service`, not `ly.service`, which does not exist. ly's unit
+# also carries Alias=autovt@.service, so disabling the instance is what actually
+# releases the auto-VT that COSMIC's greeter then takes over.
+#
+# The disable is the part that is easy to leave out. ly is enabled by
+# 20-packages-and-services.sh, so enabling cosmic-greeter.service on top of it
+# leaves the image with two display managers, and which one wins the VT depends on
+# enable order rather than on intent.
+#
+# cosmic-session already ships /usr/share/wayland-sessions/cosmic.desktop, so
+# there is no session file to write by hand.
+systemctl disable ly@tty1.service
 systemctl enable cosmic-greeter.service
 
 echo "::endgroup::"

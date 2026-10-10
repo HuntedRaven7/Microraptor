@@ -17,7 +17,7 @@
 # Run with: bats tests/contract/hardware-session_test.bats
 
 REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
-CONTAINERFILE="${REPO_ROOT}/Containerfile"
+CONTAINERFILE="${REPO_ROOT}/Containerfile.workstation"
 PHASE="${REPO_ROOT}/build/25-hardware-and-session.sh"
 
 @test "hardware-session: the phase runs after the desktop packages and before the kernel" {

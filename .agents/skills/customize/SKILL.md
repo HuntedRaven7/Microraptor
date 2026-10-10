@@ -25,6 +25,41 @@ have, runtime for what the user chooses.
 **Check the default Brewfile before adding a CLI tool.** If it is already
 there, the build is the second copy at a second version.
 
+**The Flatpak row is a preference, not a rule.** It is where a GUI app belongs
+*if it is on Flathub* — a build-time RPM for the same app is a second, larger,
+updater-less copy that Flakpak would have kept current. When an app is not on
+Flathub and has no repository, the choice is a build-time RPM or nothing, and
+"nothing" is a real answer worth saying out loud to the user rather than
+inferring.
+
+## Check upstream before choosing
+
+Before adding anything, establish where it actually ships. It costs one API call
+and it decides the destination:
+
+```bash
+# Flathub, by search rather than by guessed app ID
+curl -fsS -X POST https://flathub.org/api/v2/search \
+  -H 'content-type: application/json' \
+  -d '{"query":"NAME","filters":[],"page":1,"per_page":5}'
+
+# Homebrew
+curl -fsS https://formulae.brew.sh/api/formula/NAME.json
+
+# GitHub releases: assets, sizes, and whether anything is signed
+curl -fsS https://api.github.com/repos/OWNER/REPO/releases/latest
+```
+
+Then read the project's own install docs for the release you pinned. They name
+the runtime dependencies, the CPU or architecture floor, and often the split
+between a monolithic package and per-variant binaries — the last of which is the
+difference between a 20 MB layer and a 700 MB one.
+
+Assume nothing about what is verified. Check whether the package is signed
+before claiming it is: `rpm -Kv pkg.rpm` prints `Signature: (none)` for a
+plenty of published RPMs, and a release can ship `SHA256SUMS.txt` that covers its
+loose binaries but not the package it built from them.
+
 ## Which build phase
 
 `build/` is numbered, and each phase owns one concern. [build/README.md](../../../build/README.md)
@@ -52,6 +87,55 @@ phase map.
 
 Prefer a package the base already ships. When a COPR is unavoidable,
 `copr_install_isolated` enables and disables it for you.
+
+### A package with no repository
+
+Some projects publish a release artifact and nothing a distro could repackage —
+no repo, no COPR, no Flathub. Voxtype is the one in this image. It still belongs
+in the package phase, but it needs the integrity work dnf5's repository metadata
+would otherwise do:
+
+- Pin the version in the URL and the artifact's sha256 beside it, derived from
+  one variable so they cannot disagree.
+- **Verify before installing, not after.** dnf5 unpacks the payload as it goes.
+- `--nogpgcheck` if the artifact is unsigned. That says there is nothing to
+  check; it is not a substitute for the digest.
+- Install the fetching tool (`curl`) explicitly. Relying on the package's own
+  dependency on it is circular.
+- `/tmp` is tmpfs for the build phases, so the download never reaches a layer.
+
+An unsigned artifact is common enough that "pinned digest" is the floor, not the
+ceiling. Prefer a signed one when upstream offers both.
+
+**Size is a decision, not a detail.** A package that bundles every CPU and GPU
+variant can be hundreds of megabytes, and that is sometimes correct — an image
+that ships to unknown hardware cannot pick a variant at build time. Say the size
+and the reason out loud before installing it, so the user can overrule.
+
+**Do not enable the app's service.** An application whose first run needs a
+per-machine download, a licence click, or a keyring is not ready at build time.
+Install it, document the enable step, leave the unit alone.
+
+**A display manager's unit may be a template, and there may be no bare unit to
+enable.** `ly` ships `ly@.service` and `ly-kmsconvt@.service` and nothing called
+`ly.service`, so `systemctl enable ly.service` fails outright — there is no unit
+file by that name. Enable the instance (`ly@tty1.service`) and name the tty
+explicitly: the template sets `DefaultInstance=tty2`, so an unnamed enable lands
+the login on tty2 and leaves tty1 running a getty.
+
+Check `%post` and the unit's `[Unit]` section before writing the enable line.
+
+- Upstream's README may say you must disable the getty on the same tty. Read the
+  unit first: `ly@.service` carries `Conflicts=getty@%i.service`, which is how
+  Fedora's own GDM resolves the identical conflict, so no mask is needed and
+  masking would only remove the fallback login.
+- `Conflicts=` between two display managers is the normal case, but a unit that is
+  *installed* while another is *enabled* boots with two of them. When swapping one
+  out, disable the old unit with `disable_unit`, which is guarded on the unit
+  existing so it is a no-op on a base that never had it.
+- Test for the instance and not the bare name. `grep -cE '^enable NAME(@[a-z0-9]+)?\.service$'`
+  asserting exactly one catches both a bare-name regression and enabling both
+  units at once.
 
 ### Homebrew
 
@@ -93,3 +177,25 @@ just build
 
 CI runs `validate-brewfiles`, `validate-flatpaks`, and `validate-justfiles` on
 every pull request.
+
+`just test-unit` is the gate that catches a wiring mistake, and it is worth
+running before claiming a change works. It needs no image build, so a suite that
+only fails on a real `just build` is a suite that will not be run.
+
+**A red suite on `main` is not your change.** Record the failing test names
+before you start and compare after, so "pre-existing" is a claim you can back:
+
+```bash
+git stash && just test-unit 2>&1 | grep -E '^not ok' | sort > /tmp/base.txt
+git stash pop && just test-unit 2>&1 | grep -E '^not ok' | sort > /tmp/new.txt
+comm -13 /tmp/base.txt /tmp/new.txt   # regressions: failing now, passing before
+```
+
+**A unit test of a build script needs the script sandboxed.** The script runs as
+root in the image and writes to real system paths — `/usr/lib/systemd`,
+`/etc/yum.repos.d`, anywhere `sed -i` appears. A harness that stubs `dnf5` but
+execs the real script then fails on a read-only root with a `sed` error instead
+of an assertion, and every test in the file reports the same non-failure. Rewrite
+every such path into a temp sandbox with `sed` in `setup()`, and guard the guard
+with a test that greps the sandboxed copy for the un-rewritten path. The
+guard is the only thing that notices when a new write is added.

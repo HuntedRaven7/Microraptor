@@ -1,11 +1,30 @@
 export IMAGE_NAME := env("IMAGE_NAME", "microraptor")
+export HOMELAB_IMAGE_NAME := env("HOMELAB_IMAGE_NAME", "microraptor-homelab")
 export DEFAULT_TAG := env("DEFAULT_TAG", "stable")
 export PODMAN := env("PODMAN", "podman")
 export REPO_ORG := env("GITHUB_REPOSITORY_OWNER", "projectbluefin")
-export bib_image := env("BIB_IMAGE", "ghcr.io/osbuild/bootc-image-builder:latest@sha256:947e96e90e4e106ead198e4f60b4086d873cce39b516cd31e87224174373edec")
+export bib_image := env("BIB_IMAGE", "ghcr.io/osbuild/bootc-image-builder:latest@sha256:fbd3e426f7ee889cf8773af8172e5bb34f09e82545968e28dc6d1b8e20484a02")
 export qemu_image := env("QEMU_IMAGE", "ghcr.io/qemus/qemu:7.50@sha256:e7f6fda52503a546fd649670ba46e4bc23dc6dcef275bc3fac48877fbbc430df")
 export vm_ram := env("VM_RAM", "8192")
 export vm_cpus := env("VM_CPUS", "4")
+
+# Image flavours. One Containerfile per flavour, named Containerfile.<flavor>,
+# and the flavour is the third argument to `build`. workstation is the default
+# because it is the image this repository published before there was a choice,
+# and defaulting to it keeps `just build` and the two-argument CI call working
+# unchanged.
+#
+# One flavour is one Containerfile rather than one ARG or one target stage: the
+# workstation and the homelab image share a base and almost nothing else. The
+# homelab image runs no desktop, no display manager, no compositor and no OGC
+# kernel, and adds k0s, KubeStellar, fail2ban and tailscale. Threading that
+# through conditionals would put a display manager's worth of `if` around a
+# document that is written to be read.
+#
+# To add one: write Containerfile.<flavor>, and add a recipe below that passes
+# the flavour. `just check-flavor-files` and tests/template/justfile-build_test.bats
+# assert the set agrees.
+DEFAULT_FLAVOR := env("FLAVOR", "workstation")
 
 alias build-vm := build-qcow2
 alias rebuild-vm := rebuild-qcow2
@@ -130,31 +149,49 @@ sudoif command *args:
 # Arguments:
 #   $target_image - the image to build (default: $IMAGE_NAME)
 #   $tag          - the image tag (default: $DEFAULT_TAG)
+#   $flavor       - which Containerfile to build (default: $DEFAULT_FLAVOR)
 #
 # The version string is <base-tag>.<date> for a tag containing "stable" and
 # <image-tag>-<base-tag>.<date> otherwise. The base tag comes from the base
-# image's FROM line in the Containerfile, a point release is appended when the
-# registry already has that version, and a clean worktree also stamps the short
-# HEAD SHA.
+# image's FROM line in that flavour's Containerfile, a point release is appended
+# when the registry already has that version, and a clean worktree also stamps
+# the short HEAD SHA.
+#
+# The containerfile is passed with -f rather than relying on podman's default
+# name. `podman build .` with no -f looks for a file literally called
+# `Containerfile`, and there is no longer one: the images are
+# Containerfile.workstation and Containerfile.homelab. Passing the directory and
+# letting podman pick would fail with "no Containerfile found" and name neither.
 #
 # Example: just build microraptor stable-testing
+#           just build microraptor-homelab stable-testing homelab
 
 # Build the image using the specified parameters
 [group('Image')]
-build $target_image=IMAGE_NAME $tag=DEFAULT_TAG:
+build $target_image=IMAGE_NAME $tag=DEFAULT_TAG $flavor=DEFAULT_FLAVOR:
     #!/usr/bin/env bash
+
+    # Resolved before anything else reads it, so a typo in the flavour fails
+    # here naming the file that does not exist rather than 200 lines later
+    # inside podman.
+    containerfile="Containerfile.${flavor}"
+    if [[ ! -f "${containerfile}" ]]; then
+        echo "ERROR: flavour '${flavor}' names ${containerfile}, which does not exist" >&2
+        echo "       Known flavours: $(ls Containerfile.* 2>/dev/null | sed 's/^Containerfile\.//' | tr '\n' ' ')" >&2
+        exit 1
+    fi
 
     # The base image is the source of truth for the base tag and the base image
     # name: it is the FROM line with no stage alias, because every context stage
     # is `FROM ... AS name`. Renovate is what moves its tag, so a bump needs no
     # second edit. The tag is taken verbatim, so Fedora's numeric major and
     # CentOS's `stream10` both work.
-    base_from=$(grep -iE '^FROM[[:space:]]' Containerfile | grep -viE '[[:space:]]as[[:space:]]' | head -n1)
+    base_from=$(grep -iE '^FROM[[:space:]]' "${containerfile}" | grep -viE '[[:space:]]as[[:space:]]' | head -n1)
     base_tag=$(sed -E 's|^FROM[[:space:]]+[^@:[:space:]]*:([^@[:space:]]+)(@.*)?$|\1|' <<<"${base_from}")
     base_ref=$(sed -E 's|^FROM[[:space:]]+||; s|@.*$||; s|:[^:/]*$||' <<<"${base_from}")
     base_image_name="${base_ref##*/}"
     if [[ -z "${base_from}" || "${base_tag}" == "${base_from}" || -z "${base_image_name}" ]]; then
-        echo "ERROR: Could not read the base image from the Containerfile base FROM line"
+        echo "ERROR: Could not read the base image from ${containerfile}'s base FROM line"
         exit 1
     fi
 
@@ -237,9 +274,43 @@ build $target_image=IMAGE_NAME $tag=DEFAULT_TAG:
     ${PODMAN} build \
         "${BUILD_ARGS[@]}" \
         "${CACHE_ARGS[@]}" \
+        --file "${containerfile}" \
         --pull=newer \
         --tag "${target_image}:${tag}" \
         .
+
+# Build the workstation image. Thin wrapper over `build`, and the reason it
+# exists is that the flavour name has to be written somewhere: typing the third
+# argument is the kind of step that gets forgotten, and forgetting it silently
+# builds the workstation instead of failing.
+#
+# `{{just_executable()}}` rather than a bare `just`, and this is not a style
+# preference. CI invokes the recipe as `sudo -E "$(command -v just)" ...`, and a
+# recipe that shells out to `just` by name gets the sudo-reset PATH instead of
+# the one that invocation was built from. The result is
+#
+#   sh: 1: just: not found
+#   error: recipe `build-homelab` failed on line 295 with exit code 127
+#
+# which points at the Justfile rather than at the environment that caused it.
+# just_executable() is interpolated by just itself and yields the absolute path of
+# the running binary, so the nested call resolves the same way the outer one did.
+# It exists in just 1.58; `just_exe()` does NOT and fails at parse time.
+[group('Image')]
+build-workstation $target_image=IMAGE_NAME $tag=DEFAULT_TAG:
+    @{{ just_executable() }} build "${target_image}" "${tag}" workstation
+
+# Build the homelab image: Hummingbird base, no desktop, k0s and KubeStellar.
+# Named separately from `build` because the image name differs too, and CI needs
+# both the flavour and the name to agree.
+#
+# Note that build-homelab-image.yml deliberately does NOT call this recipe. It
+# calls `build` with the flavour as its third argument instead, because a nested
+# just invocation is one more thing to go wrong in CI; this wrapper is for local
+# convenience.
+[group('Image')]
+build-homelab $target_image=HOMELAB_IMAGE_NAME $tag=DEFAULT_TAG:
+    @{{ just_executable() }} build "${target_image}" "${tag}" homelab
 
 # Tag images with the generated alias tags
 # Bluefin pattern: separate tagging from pushing
