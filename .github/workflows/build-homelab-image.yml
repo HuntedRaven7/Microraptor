@@ -89,7 +89,7 @@ jobs:
           fetch-depth: 1
 
       - name: Setup runner
-        uses: projectbluefin/actions/bootc-build/setup-runner@ae7d740d261d56354aeaf0a72af6f87e442e0472 # v1
+        uses: projectbluefin/actions/bootc-build/setup-runner@a52da5670b9337598cbc80c4d6a9a7b21e770aec # v1
         with:
           storage-backend: btrfs
           native-overlay: "true"
@@ -97,7 +97,7 @@ jobs:
           install-tools: '["just"]'
 
       - name: Restore DNF cache
-        uses: projectbluefin/actions/bootc-build/dnf-cache@ae7d740d261d56354aeaf0a72af6f87e442e0472 # v1
+        uses: projectbluefin/actions/bootc-build/dnf-cache@a52da5670b9337598cbc80c4d6a9a7b21e770aec # v1
         with:
           action: restore
           cache-name: ${IMAGE_NAME}
@@ -144,7 +144,7 @@ jobs:
 
       - name: Generate tags
         id: generate-tags
-        uses: projectbluefin/actions/bootc-build/generate-tags@ae7d740d261d56354aeaf0a72af6f87e442e0472 # v1
+        uses: projectbluefin/actions/bootc-build/generate-tags@a52da5670b9337598cbc80c4d6a9a7b21e770aec # v1
         with:
           base-name: ${{ env.IMAGE_NAME }}
           stream-name: ${{ needs.identify.outputs.tag_stream }}
@@ -186,7 +186,7 @@ jobs:
 
       - name: Save DNF cache
         if: always() && !cancelled()
-        uses: projectbluefin/actions/bootc-build/dnf-cache@ae7d740d261d56354aeaf0a72af6f87e442e0472 # v1
+        uses: projectbluefin/actions/bootc-build/dnf-cache@a52da5670b9337598cbc80c4d6a9a7b21e770aec # v1
         with:
           action: save
           cache-name: ${IMAGE_NAME}
@@ -215,7 +215,7 @@ jobs:
 
       - name: Push to GHCR
         id: push
-        uses: projectbluefin/actions/bootc-build/push-image@ae7d740d261d56354aeaf0a72af6f87e442e0472 # v1
+        uses: projectbluefin/actions/bootc-build/push-image@a52da5670b9337598cbc80c4d6a9a7b21e770aec # v1
         with:
           image-name: ${{ env.IMAGE_NAME }}
           tags: ${{ steps.branch-tags.outputs.tags }}
@@ -229,7 +229,7 @@ jobs:
       # rejects an unsigned candidate and preserves the prior :stable.
       - name: Sign and publish
         continue-on-error: true
-        uses: projectbluefin/actions/bootc-build/sign-and-publish@ae7d740d261d56354aeaf0a72af6f87e442e0472 # v1
+        uses: projectbluefin/actions/bootc-build/sign-and-publish@a52da5670b9337598cbc80c4d6a9a7b21e770aec # v1
         with:
           image: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}
           digest: ${{ steps.push.outputs.digest }}
