@@ -32,7 +32,7 @@ setup() {
     mkdir -p "${STUB_BIN}" "${TEST_ROOT}/logs" "${SANDBOX}"
 
     cp "${REPO_ROOT}/Justfile" "${SANDBOX}/Justfile"
-    printf 'FROM example.invalid/silverblue:44@sha256:deadbeef\n' >"${SANDBOX}/Containerfile"
+    printf 'FROM example.invalid/silverblue:44@sha256:deadbeef\n' >"${SANDBOX}/Containerfile.workstation"
 
     export PATH="${STUB_BIN}:${PATH}"
     export PODMAN_LOG SKOPEO_LOG
@@ -120,21 +120,21 @@ podman_build_args() {
 }
 
 @test "build: reads the base tag from the base FROM line" {
-    printf 'FROM example.invalid/silverblue:43@sha256:deadbeef\n' >"${SANDBOX}/Containerfile"
+    printf 'FROM example.invalid/silverblue:43@sha256:deadbeef\n' >"${SANDBOX}/Containerfile.workstation"
     run_just build microraptor stable
     [ "$status" -eq 0 ]
     [[ "$(podman_build_args)" == *"--build-arg VERSION=43.20260830"* ]]
 }
 
 @test "build: reads the base FROM tag, not a context stage's tag" {
-    printf 'FROM example.invalid/ctx:99@sha256:deadbeef AS ctx\nFROM example.invalid/silverblue:45@sha256:deadbeef\n' >"${SANDBOX}/Containerfile"
+    printf 'FROM example.invalid/ctx:99@sha256:deadbeef AS ctx\nFROM example.invalid/silverblue:45@sha256:deadbeef\n' >"${SANDBOX}/Containerfile.workstation"
     run_just build microraptor stable
     [ "$status" -eq 0 ]
     [[ "$(podman_build_args)" == *"--build-arg VERSION=45.20260830"* ]]
 }
 
 @test "build: accepts a base FROM line without a digest" {
-    printf 'FROM example.invalid/silverblue:42\n' >"${SANDBOX}/Containerfile"
+    printf 'FROM example.invalid/silverblue:42\n' >"${SANDBOX}/Containerfile.workstation"
     run_just build microraptor stable
     [ "$status" -eq 0 ]
     [[ "$(podman_build_args)" == *"--build-arg VERSION=42.20260830"* ]]
@@ -143,7 +143,7 @@ podman_build_args() {
 @test "build: accepts a non-numeric base tag verbatim" {
     # CentOS and Hummingbird bases tag with something other than a Fedora
     # major, so the tag is used as-is in the version string.
-    printf 'FROM example.invalid/centos-bootc:stream10@sha256:deadbeef\n' >"${SANDBOX}/Containerfile"
+    printf 'FROM example.invalid/centos-bootc:stream10@sha256:deadbeef\n' >"${SANDBOX}/Containerfile.workstation"
     run_just build microraptor stable
     [ "$status" -eq 0 ]
     [[ "$(podman_build_args)" == *"--build-arg VERSION=stream10.20260830"* ]]
@@ -151,7 +151,7 @@ podman_build_args() {
 }
 
 @test "build: aborts when the base FROM line carries no tag" {
-    printf 'FROM example.invalid/silverblue@sha256:deadbeef\n' >"${SANDBOX}/Containerfile"
+    printf 'FROM example.invalid/silverblue@sha256:deadbeef\n' >"${SANDBOX}/Containerfile.workstation"
     run_just build microraptor stable
     [ "$status" -ne 0 ]
     [[ "$output" == *"Could not read the base image"* ]]
@@ -188,7 +188,7 @@ podman_build_args() {
 }
 
 @test "build: omits SHA_HEAD_SHORT when the worktree is dirty" {
-    export STUB_GIT_STATUS=" M Containerfile"
+    export STUB_GIT_STATUS=" M Containerfile.workstation"
     run_just build microraptor stable
     [ "$status" -eq 0 ]
     [[ "$(podman_build_args)" != *"SHA_HEAD_SHORT"* ]]
@@ -206,7 +206,7 @@ podman_build_args() {
 }
 
 @test "build: passes the base image name read from the FROM line" {
-    printf 'FROM example.invalid/other-base:44@sha256:deadbeef\n' >"${SANDBOX}/Containerfile"
+    printf 'FROM example.invalid/other-base:44@sha256:deadbeef\n' >"${SANDBOX}/Containerfile.workstation"
     run_just build microraptor stable
     [ "$status" -eq 0 ]
     [[ "$(podman_build_args)" == *"--build-arg BASE_IMAGE_NAME=other-base"* ]]
@@ -299,19 +299,19 @@ podman_build_args() {
 }
 
 @test "Containerfile: owns the OCI and ArtifactHub label schema" {
-    run grep -F 'LABEL org.opencontainers.image.title="${IMAGE_NAME}" \' "${REPO_ROOT}/Containerfile"
+    run grep -F 'LABEL org.opencontainers.image.title="${IMAGE_NAME}" \' "${REPO_ROOT}/Containerfile.workstation"
     [ "$status" -eq 0 ]
-    run grep -F 'org.opencontainers.image.version="${VERSION}" \' "${REPO_ROOT}/Containerfile"
+    run grep -F 'org.opencontainers.image.version="${VERSION}" \' "${REPO_ROOT}/Containerfile.workstation"
     [ "$status" -eq 0 ]
-    run grep -F 'org.opencontainers.image.revision="${SHA_HEAD_SHORT}" \' "${REPO_ROOT}/Containerfile"
+    run grep -F 'org.opencontainers.image.revision="${SHA_HEAD_SHORT}" \' "${REPO_ROOT}/Containerfile.workstation"
     [ "$status" -eq 0 ]
-    run grep -F 'org.opencontainers.image.vendor="${IMAGE_VENDOR}" \' "${REPO_ROOT}/Containerfile"
+    run grep -F 'org.opencontainers.image.vendor="${IMAGE_VENDOR}" \' "${REPO_ROOT}/Containerfile.workstation"
     [ "$status" -eq 0 ]
-    run grep -F 'org.opencontainers.image.source="https://github.com/${IMAGE_VENDOR}/${IMAGE_NAME}/blob/${IMAGE_REF}/Containerfile" \' "${REPO_ROOT}/Containerfile"
+    run grep -F 'org.opencontainers.image.source="https://github.com/${IMAGE_VENDOR}/${IMAGE_NAME}/blob/${IMAGE_REF}/Containerfile.workstation" \' "${REPO_ROOT}/Containerfile.workstation"
     [ "$status" -eq 0 ]
-    run grep -F 'io.artifacthub.package.license="Apache-2.0" \' "${REPO_ROOT}/Containerfile"
+    run grep -F 'io.artifacthub.package.license="Apache-2.0" \' "${REPO_ROOT}/Containerfile.workstation"
     [ "$status" -eq 0 ]
-    run grep -F 'containers.bootc="1"' "${REPO_ROOT}/Containerfile"
+    run grep -F 'containers.bootc="1"' "${REPO_ROOT}/Containerfile.workstation"
     [ "$status" -eq 0 ]
 }
 
@@ -396,8 +396,8 @@ podman_build_args() {
     # The commit changes on every push. Declaring the arg before the package and
     # overlay phases would invalidate those layers each time, so it belongs in
     # the late metadata block with the other volatile values.
-    marker=$(grep -n '### IMAGE METADATA' "${REPO_ROOT}/Containerfile" | cut -d: -f1)
-    arg=$(grep -n 'ARG SHA_HEAD_SHORT' "${REPO_ROOT}/Containerfile" | cut -d: -f1)
+    marker=$(grep -n '### IMAGE METADATA' "${REPO_ROOT}/Containerfile.workstation" | cut -d: -f1)
+    arg=$(grep -n 'ARG SHA_HEAD_SHORT' "${REPO_ROOT}/Containerfile.workstation" | cut -d: -f1)
     [ -n "${marker}" ]
     [ -n "${arg}" ]
     [ "${arg}" -gt "${marker}" ]

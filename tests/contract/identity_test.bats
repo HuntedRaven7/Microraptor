@@ -10,7 +10,7 @@
 # drift. README.md restates it in prose and is not checked here.
 
 REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
-CONTAINERFILE="${REPO_ROOT}/Containerfile"
+CONTAINERFILE="${REPO_ROOT}/Containerfile.workstation"
 
 # The Containerfile ARG is the authoritative local value; every site must match.
 image_name() {

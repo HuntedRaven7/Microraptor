@@ -10,7 +10,7 @@
 # between a hand-edited FROM line and a local build that cannot start.
 
 REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
-CONTAINERFILE="${REPO_ROOT}/Containerfile"
+CONTAINERFILE="${REPO_ROOT}/Containerfile.workstation"
 
 # The same extraction the Justfile's build recipe performs.
 base_from() {

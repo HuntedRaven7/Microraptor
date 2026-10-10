@@ -61,8 +61,8 @@ ARG PACKAGE_IMAGE_SHA=sha256:0f04cff2dd0b085604ff3cd79d538ab14b97cbe356980f7d365
 
 FROM ghcr.io/projectbluefin/utah-packages@sha256:d257e97a0057e37da47995bb142c180e2352960ab13bd44594215616a395b717 AS packages
 
-FROM ghcr.io/projectbluefin/common:latest@sha256:0c1f6ffceeff17329d190aa6ecda26ea39d1cec03a44039d08bae5ec02204a89 AS common
-FROM ghcr.io/ublue-os/brew:latest@sha256:bc6f5a9fc4f28cded2fe567b31f74825c1f4481d5e43c537c3fcc0d3df6d22ab AS brew
+FROM ghcr.io/projectbluefin/common:latest@sha256:7e1836d65f2dd5534eb85488af3523f930adb2fb3424f30ad5b3b0c006ac78bc AS common
+FROM ghcr.io/ublue-os/brew:latest@sha256:2aaf87e3757466bc28d056505a651c7ca5c56fd28f6ff709b34f3f5dbc860e89 AS brew
 
 
 # OGC kernel RPMs and the NVIDIA open kmod, from ublue-os/akmods.
@@ -83,8 +83,8 @@ FROM ghcr.io/ublue-os/brew:latest@sha256:bc6f5a9fc4f28cded2fe567b31f74825c1f4481
 #
 # `nvidia-open` is the open kernel module, which covers RTX 20/30/40/50-series
 # and GTX 16-series. Older hardware needs akmods-nvidia (the closed module).
-FROM ghcr.io/ublue-os/akmods:ogc-44@sha256:76ede6f1663a5cc3d0eecc76f2ba6281f34543b7f65ee89170398b82bd3772b5 AS akmods-common
-FROM ghcr.io/ublue-os/akmods-nvidia-open:ogc-44@sha256:69a09c2f39c333565e93726c4d85cf84acffe2adfc2c611c92d541f13b17860b AS akmods-nvidia
+FROM ghcr.io/ublue-os/akmods:ogc-44@sha256:1885e7dbdfdba0581f13dd3b5e570573b5f13c8d2273e1530e7fad5670923539 AS akmods-common
+FROM ghcr.io/ublue-os/akmods-nvidia-open:ogc-44@sha256:5d914915e10cca668e68c98b5cfc798d9de578b52de4f1a055aba7c959df8ca6 AS akmods-nvidia
 
 # Builds the kernel-uname-r shim in a stage that is thrown away.
 #
@@ -139,7 +139,7 @@ COPY --from=shim-build /out /out
 # Renovate keeps the digest pin below up to date. Do not drop the digest or add
 # trailing whitespace: `just build` parses this line for the base tag and the
 # base image name, and a malformed line makes it exit rather than guess.
-FROM ghcr.io/projectbluefin/utah:testing@sha256:9ccb1d74e14817bb891585a1816e73389b354865ae54ff8d6d6b42cc907a419c 
+FROM quay.io/hummingbird-community/bootc-os:latest@sha256:4ececc14324a9ce98be40ddc4197a7ffb855394cea38b0f47330be80a6937873
 
 # Image identity - these define how bootc, fastfetch, and the ublue ecosystem
 # recognize your image. Change these to match your project name.
@@ -328,7 +328,7 @@ LABEL org.opencontainers.image.title="${IMAGE_NAME}" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${SHA_HEAD_SHORT}" \
       org.opencontainers.image.description="${IMAGE_DESC}" \
-      org.opencontainers.image.source="https://github.com/${IMAGE_VENDOR}/${IMAGE_NAME}/blob/${IMAGE_REF}/Containerfile" \
+      org.opencontainers.image.source="https://github.com/${IMAGE_VENDOR}/${IMAGE_NAME}/blob/${IMAGE_REF}/Containerfile.workstation" \
       org.opencontainers.image.url="https://github.com/${IMAGE_VENDOR}/${IMAGE_NAME}" \
       org.opencontainers.image.vendor="${IMAGE_VENDOR}" \
       org.opencontainers.image.created="${IMAGE_CREATED}" \

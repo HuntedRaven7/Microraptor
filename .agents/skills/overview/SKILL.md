@@ -30,13 +30,22 @@ defines three things:
 
 3. **Phases** — each build script runs in its own `RUN` block, in the order the
    Containerfile names them. [build/README.md](../../../build/README.md) lists
-   them.
+   them, and which are workstation-only and which are homelab-only.
+
+There are **two images**, one Containerfile each: `Containerfile.workstation`
+(published as `microraptor`) and `Containerfile.homelab` (published as
+`microraptor-homelab`). The flavour is `build`'s third argument, and the
+Containerfile is `Containerfile.<flavor>`. They share the base digest,
+`00-image-info.sh` and `90-cleanup.sh`, and nothing else that is worth sharing —
+the desktop overlay, package, session, kernel and NVIDIA phases exist only on the
+workstation side.
 
 ## Layout
 
 | Path | Holds |
 |---|---|
-| `Containerfile` | Image assembly: identity, base image, and phases. |
+| `Containerfile.workstation` | Image assembly for the workstation image: identity, base image, and phases. |
+| `Containerfile.homelab` | The same for the homelab image: same base and cleanup, no desktop, plus k0s and the console agent. |
 | `Justfile` | Build, VM, release, and test recipes. |
 | `build/` | Build-time scripts: the phases, helpers, and the `.example` catalogue. |
 | `custom/brew/` | Brewfiles, installed at runtime. |

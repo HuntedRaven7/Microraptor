@@ -26,29 +26,29 @@ set -euo pipefail
 source /ctx/build/copr-helpers.sh
 
 if [ -f /usr/lib/systemd/logind.conf ]; then
-    sed -i 's/^#HandleLidSwitch=.*/HandleLidSwitch=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
-    sed -i 's/^#HandleLidSwitchDocked=.*/HandleLidSwitchDocked=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
-    sed -i 's/^#HandleLidSwitchExternalPower=.*/HandleLidSwitchExternalPower=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
-    sed -i 's/^#SleepOperation=.*/SleepOperation=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
+  sed -i 's/^#HandleLidSwitch=.*/HandleLidSwitch=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
+  sed -i 's/^#HandleLidSwitchDocked=.*/HandleLidSwitchDocked=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
+  sed -i 's/^#HandleLidSwitchExternalPower=.*/HandleLidSwitchExternalPower=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
+  sed -i 's/^#SleepOperation=.*/SleepOperation=suspend-then-hibernate/' /usr/lib/systemd/logind.conf
 fi
 
 unit_exists() {
-    systemctl cat "$1" >/dev/null 2>&1
+  systemctl cat "$1" >/dev/null 2>&1
 }
 
 user_unit_exists() {
-    for dir in /usr/lib/systemd/user /usr/local/lib/systemd/user /etc/systemd/user; do
-        [ -e "$dir/$1" ] && return 0
-    done
-    return 1
+  for dir in /usr/lib/systemd/user /usr/local/lib/systemd/user /etc/systemd/user; do
+    [ -e "$dir/$1" ] && return 0
+  done
+  return 1
 }
 
 enable_unit() {
-    unit_exists "$1" && systemctl enable "$1" || true
+  unit_exists "$1" && systemctl enable "$1" || true
 }
 
 disable_unit() {
-    unit_exists "$1" && systemctl disable "$1" || true
+  unit_exists "$1" && systemctl disable "$1" || true
 }
 
 # Enable nullglob for all glob operations to prevent failures on empty matches
@@ -74,10 +74,10 @@ echo "::endgroup::"
 ###############################################################################
 # Wayland desktop
 #
-# A MangoWM session on SDDM. Nothing here configures MangoWM: the compositor, the
-# display manager and the session file the RPMs provide are the whole
-# deliverable. A session that exits immediately until you supply a configuration
-# is a runtime concern, not a build one.
+# A MangoWM session on ly. Nothing here configures MangoWM or ly: the
+# compositor, the display manager and the session file the RPMs provide are the
+# whole deliverable. A session that exits immediately until you supply a
+# configuration is a runtime concern, not a build one.
 #
 # Sources, and why each one:
 #
@@ -128,7 +128,7 @@ echo "::group:: Install Quickshell and Hyprland"
 # dnf5 autodetects a chroot from os-release, gets hummingbird-20251124-x86_64,
 # writes no repo file at all, and the install below fails with "No match for
 # argument: quickshell".
-copr_install_isolated "lionheartp/Hyprland" quickshell 
+copr_install_isolated "lionheartp/Hyprland" quickshell hyprland
 
 echo "::endgroup::"
 
@@ -148,13 +148,13 @@ echo "::group:: Install the audio stack"
 # pipewire-alsa is the ALSA compatibility layer, so ordinary desktop apps that
 # only speak ALSA still produce sound.
 dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y \
-	pipewire \
-	pipewire-alsa \
-	pipewire-utils \
-	wireplumber \
-	xdg-desktop-portal \
-	wireless-regdb \
-	wlr-randr
+  pipewire \
+  pipewire-alsa \
+  pipewire-utils \
+  wireplumber \
+  xdg-desktop-portal \
+  wireless-regdb \
+  wlr-randr
 
 echo "::endgroup::"
 
@@ -171,97 +171,124 @@ echo "::group:: Install the Utah package stack"
 # array literal takes comments between its elements and still expands to a single
 # argument list, which keeps the install one transaction.
 utah_packages=(
-	NetworkManager-config-connectivity-fedora
-	niri
-	NetworkManager-wifi
-	NetworkManager-wwan
-	wpa_supplicant
-	iw
-	wireless-regdb
-	ModemManager
-	bind-utils
-	iptables-nft
-	NetworkManager-bluetooth
-	fprintd
-	fprintd-pam
-	linux-firmware
-	iwlwifi-dvm-firmware
-	iwlwifi-mld-firmware
-	iwlwifi-mvm-firmware
-	iwlegacy-firmware
-	intel-gmmlib
-	intel-mediasdk
-	intel-vpl-gpu-rt
-	libheif
-	libva
-	libva-intel-media-driver
-	mesa-dri-drivers
-	mesa-filesystem
-	mesa-libEGL
-	mesa-libGL
-	mesa-libgbm
-	git
-	nautilus
-	grim
-	gcc
-	slurp
-	pavucontrol
-	rofi
-	mesa-vulkan-drivers
-	alsa-ucm
-	alsa-utils
-	pipewire-alsa
-	gdm
-	pipewire-utils
-	wireplumber
-	xdg-desktop-portal
-	langpacks-en
-	langpacks-fonts-en
-	abattis-cantarell-fonts
-	default-fonts-core-emoji
-	default-fonts-core-mono
-	default-fonts-core-sans
-	default-fonts-core-serif
-	google-noto-sans-math-fonts
-	google-noto-sans-mono-vf-fonts
-	google-noto-sans-symbols-2-fonts
-	google-noto-serif-vf-fonts
-	bash-completion
-	crypto-policies-scripts
-	dbus-tools
-	file
-	hostname
-	keyutils
-	less
-	libimobiledevice-utils
-	lm_sensors
-	man-db
-	poppler-utils
-	unzip
-	which
-	wlr-randr
-	xxd
-	zip
-	buildah
-	cups
-	cups-client
-	cups-ipptool
-	python3-pip
-	systemd-container
+  NetworkManager-config-connectivity-fedora
+  NetworkManager-wifi
+  NetworkManager-wwan
+  kitty
+  wpa_supplicant
+  iw
+  wireless-regdb
+  ModemManager
+  bind-utils
+  iptables-nft
+  adw-gtk3-theme
+  adwaita-fonts-all
+  gnome-disks
+  NetworkManager-bluetooth
+  fprintd
+  fprintd-pam
+  linux-firmware
+  iwlwifi-dvm-firmware
+  iwlwifi-mld-firmware
+  iwlwifi-mvm-firmware
+  iwlegacy-firmware
+  intel-gmmlib
+  intel-mediasdk
+  intel-vpl-gpu-rt
+  libheif
+  libva
+  libva-intel-media-driver
+  mesa-dri-drivers
+  mesa-filesystem
+  mesa-libEGL
+  mesa-libGL
+  mesa-libgbm
+  git
+  nautilus
+  grim
+  gcc
+  wl-clipboard
+  slurp
+  pavucontrol
+  rofi
+  mesa-vulkan-drivers
+  alsa-ucm
+  alsa-utils
+  pipewire-alsa
+  pipewire-utils
+  wireplumber
+  xdg-desktop-portal
+  langpacks-en
+  langpacks-fonts-en
+  abattis-cantarell-fonts
+  default-fonts-core-emoji
+  default-fonts-core-mono
+  default-fonts-core-sans
+  default-fonts-core-serif
+  google-noto-sans-math-fonts
+  google-noto-sans-mono-vf-fonts
+  google-noto-sans-symbols-2-fonts
+  google-noto-serif-vf-fonts
+  bash-completion
+  crypto-policies-scripts
+  dbus-tools
+  file
+  hostname
+  keyutils
+  less
+  libimobiledevice-utils
+  lm_sensors
+  man-db
+  poppler-utils
+  unzip
+  which
+  wlr-randr
+  xxd
+  zip
+  buildah
+  cups
+  cups-client
+  cups-ipptool
+  python3-pip
+  systemd-container
 )
 
 dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y "${utah_packages[@]}"
 
 echo "::endgroup::"
 
+echo "::group:: Install ly and Tailscale"
 
-
-echo "::group:: Install SDDM and Tailscale"
-
-# Both are in Fedora 44 proper. Tailscale is not a third-party repository
-# dependency on this base, which is worth stating because the 30-tailscale
-# example in build/ adds one.
-dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y tailscale
+# Both are in Fedora 44 proper. Neither needs a third-party repository, which is
+# worth stating for ly in particular: it is the kind of package that looks like it
+# would need a COPR, because upstream publishes no RPM and the dist-git spec
+# builds it from a Zig tarball. Fedora does package it (ly-1.4.0-2.fc44, shipped
+# in F44 Updates), so this transaction stays repository-less. Tailscale is not a
+# third-party repository dependency on this base either, which is worth stating
+# because the 30-tailscale example in build/ adds one.
+#
+# ly is the display manager. It replaces GDM, which this phase used to install:
+# ly is 1.9 MiB installed, against a GDM that pulls GNOME's session stack with
+# it, and an image whose only session is a compositor has nothing to gain from a
+# display manager that also ships a desktop.
+#
+# What is NOT installed with it, and why that is deliberate: the Fedora runtime
+# dependencies in upstream's README are xorg, xorg-x11-server and
+# xorg-x11-xauth. Those are for launching X11 sessions, and this image's only
+# session is MangoWM on Wayland, so there is no X11 session for them to launch.
+# The one weak dependency ly does carry is brightnessctl, and the Containerfile
+# sets install_weak_deps=0, so it is not pulled in either. ly's RPM requires none
+# of them, so nothing drags them back in transitively -- a transaction on Fedora
+# 44 with install_weak_deps=0 resolves to ly and eight base packages (util-linux,
+# policycoreutils, libxcb and friends), and nothing else.
+#
+# SELinux: the spec's %post labels /usr/bin/ly xdm_exec_t with semanage, and the
+# README documents the process-transition denial that a first login can still hit
+# (#494). That is a runtime policy concern -- there is no SELinux policy loaded
+# during a container build for a module to be compiled against -- so it is not
+# papered over here with an --allownonexec or a permissive toggle. A local module
+# is a per-machine fix and belongs to the user who hits it.
+dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y ly tailscale
 
 echo "::endgroup::"
 
@@ -274,6 +301,123 @@ dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y ghostty mangowm
 
 echo "::endgroup::"
 
+echo "::group:: Install Voxtype from its release RPM"
+
+# Voxtype is push-to-talk dictation, and it is the one thing in this image that
+# comes from a URL rather than a repository. There is no Fedora package, no
+# Terra package, no COPR, and no Flathub build -- the upstream project ships a
+# release RPM and nothing else a distro could repackage. So this group has to
+# do what the groups above get from dnf5's repository metadata: name a version,
+# prove the bytes are the ones that version published, and install them.
+#
+# It is here rather than in a phase of its own because it is the same kind of
+# thing as everything above it: an RPM the image ships. The cost of that is
+# worth stating rather than leaving to be discovered. A voxtype version bump
+# invalidates this whole layer and re-downloads every Fedora and Terra package
+# in it, and voxtype is 700 MB installed, so that is the worst ratio in the
+# build. Its own RUN block between this phase and 25-hardware-and-session.sh
+# would cap the blast radius at this group alone; that is the alternative if
+# the download cost ever matters more than the file count.
+#
+# 700 MB, from a 357 MB download, is upstream's shape and not an accident. The
+# RPM carries every backend they build: avx2, avx512 and baseline for the CPU,
+# vulkan for the GPU, and the ONNX runtimes for CUDA 12, CUDA 13 and MIGraphX.
+# /usr/bin/voxtype is a wrapper that reads /proc/cpuinfo and picks one at run
+# time. This image ships to machines this build never sees, so picking one here
+# would ship the wrong one to everybody whose CPU is not the build host's. The
+# alternative -- let each user run `voxtype setup gpu --enable` -- does not
+# remove the cost, it moves it onto everyone who has a GPU.
+#
+# Verification, because there is less of it than the groups above have:
+#
+#   Upstream publishes a SHA256SUMS.txt and a detached .asc per asset. Neither
+#   covers the .rpm. The sums file lists the loose per-backend binaries and the
+#   macOS artifacts; it has no line for the RPM. The .asc is a signature *over*
+#   the RPM rather than a public key the rpmdb could check one against, and
+#   the RPM carries no rpm signature of its own -- `rpm -Kv` reports
+#   "Signature: (none)". Importing a maintainer's key to trust one unsigned
+#   artifact would add a trust anchor to the image to replace a weaker one.
+#
+#   So the digest is pinned here instead, and it is the stronger of the two
+#   checks available: it pins this exact artifact, where a key check trusts
+#   whoever holds the key today, and it fails on a build that fetches something
+#   other than what the URL served. --nogpgcheck below turns off a check that
+#   has nothing to check; it does not stand in for the digest.
+#
+# Bumping the version means updating the URL and the digest together. They are
+# derived from one variable so they cannot disagree about which version is
+# meant; only the digest has to be recomputed, and SHA256SUMS.txt cannot do it
+# because it has no line for the RPM. Compute it from the artifact:
+#   curl -fsSL "${voxtype_rpm_url}" | sha256sum
+voxtype_version="1.1.0"
+voxtype_rpm_name="voxtype-${voxtype_version}-1.x86_64.rpm"
+voxtype_rpm_url="https://github.com/peteonrails/voxtype/releases/download/v${voxtype_version}/${voxtype_rpm_name}"
+voxtype_rpm_sha256="bec4afe2e4c0a75e2453931eea276bbf736b10bae14479ca2019a252263447f4"
+
+# curl is named here rather than left to the RPM's own dependency on it, because
+# curl is what fetches the RPM: relying on the package to supply the tool that
+# downloads the package is circular. wtype is the Wayland typing backend.
+# Upstream recommends it over the dotool -> ydotool -> clipboard chain this
+# image would otherwise fall through, and wl-clipboard and pipewire-alsa are
+# already installed above.
+#
+# Through dnf5_retry like every other transaction here. The mirrors flake on
+# package downloads regardless of where the package came from, so the RPM's
+# dependencies are no less exposed than any other package's.
+dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y curl wtype
+
+# Downloaded into /tmp, which the Containerfile mounts as tmpfs for this phase,
+# so 357 MB of RPM never lands in an image layer. Cleared on exit as well,
+# because the trap is cheaper than relying on the tmpfs mount still being there.
+voxtype_tmpdir="$(mktemp -d)"
+trap 'rm -rf "${voxtype_tmpdir}"' EXIT
+voxtype_rpm="${voxtype_tmpdir}/${voxtype_rpm_name}"
+
+# curl's own --retry does not cover a 404 on this fetch, for the same reason
+# dnf5_retry exists for the mirrors: it retries one request against one URL,
+# and there is no second host to fail over to. Looping the whole fetch is what
+# works. Downloaded to a .part name and renamed on success, so an interrupted
+# attempt can never be mistaken for a complete file by the digest check below.
+voxtype_fetched=0
+for voxtype_attempt in 1 2 3; do
+  if curl --fail --location --silent --show-error \
+    --retry 3 --retry-delay 5 \
+    --output "${voxtype_rpm}.part" \
+    "${voxtype_rpm_url}"; then
+    mv "${voxtype_rpm}.part" "${voxtype_rpm}"
+    voxtype_fetched=1
+    break
+  fi
+  echo "::warning::voxtype fetch failed (attempt ${voxtype_attempt}/3); retrying" >&2
+  sleep $((voxtype_attempt * 5))
+done
+
+if [[ "${voxtype_fetched}" -ne 1 ]]; then
+  echo "::error::could not fetch ${voxtype_rpm_url} after 3 attempts" >&2
+  exit 1
+fi
+
+# Checked before the install, not after: dnf5 unpacks the payload as it goes,
+# so verifying afterwards would mean the untrusted bytes were already on disk.
+if ! echo "${voxtype_rpm_sha256}  ${voxtype_rpm}" | sha256sum --check --strict -; then
+  echo "::error::${voxtype_rpm_name} does not match the pinned digest" >&2
+  echo "::error::recurring here means upstream republished the asset, or the URL is not what it was" >&2
+  exit 1
+fi
+
+# --nogpgcheck for the reason given above: the RPM is unsigned, so there is no
+# signature to check and no key to check it against. The digest above is what
+# stands in for it.
+#
+# Nothing is enabled here. voxtype.service is WantedBy=graphical-session.target
+# and starts the daemon, which fails immediately without a model, and the models
+# are a per-machine download from models.voxtype.io that `voxtype setup
+# --download` fetches on the user's own hardware. Enabling it at build time
+# would ship a unit that cannot succeed; the README carries the enable step.
+dnf5_retry "${DNF5_RETRY_ATTEMPTS}" install -y --nogpgcheck "${voxtype_rpm}"
+
+echo "::endgroup::"
+
 echo "::group:: Enable desktop services"
 
 # Enable explicitly rather than relying on the shipped preset, matching how
@@ -281,23 +425,50 @@ echo "::group:: Enable desktop services"
 # that disables everything it does not name, so an explicit enable is the only
 # thing that survives it.
 #
-# arrangement. It has no session to offer until the user supplies a MangoWM
-# configuration, which is expected: this image ships the compositor, not a
-# desktop.
-systemctl enable gdm.service
+# The display manager. ly ships ly@.service as a *template* and no plain
+# ly.service, so `systemctl enable ly.service` fails outright -- there is no unit
+# file by that name to enable. The instance is named explicitly for the same
+# reason the template carries DefaultInstance=tty2: naming it makes the tty a
+# property of this image rather than of whichever instance systemd would guess.
+#
+# tty1, because that is the VT a display manager is expected to own and the one
+# GDM owned before the swap, so the graphical login stays where it was.
+#
+# getty on the same tty is left enabled deliberately, which contradicts upstream's
+# README ("you must disable the TTY service that Ly will run on, otherwise bad
+# things will happen"). The README predates the unit's own Conflicts=getty@%i
+# directive, and Fedora's own GDM service resolves the identical conflict the
+# same way -- Conflicts=getty@tty1.service and no mask. Masking would also remove
+# the fallback login on tty1, which is the only recovery path if ly itself will
+# not start. Conflict handling belongs to the unit; the image does not second-guess
+# it with a mask that outlives the reason for it.
+#
+# ly has no session to offer until the user supplies a MangoWM configuration,
+# which is expected: this image ships the compositor, not a desktop.
+systemctl enable ly@tty1.service
+
+# Belt and braces for the swap, and the reason this uses disable_unit rather than
+# a bare systemctl disable. GDM is no longer named in any transaction above, so
+# on this base the unit does not exist and this is a no-op. It stays because the
+# RPM could still arrive -- a base that ships a desktop, or a future dependency
+# that pulls gdm in -- and a display manager that is merely installed but no
+# longer enabled is the failure mode that is easy to miss on a machine with two
+# of them. disable_unit is guarded on the unit existing, so it cannot fail the
+# build over an absent RPM.
+disable_unit gdm.service
 
 enable_unit bluetooth.service
 enable_unit systemd-resolved.service
 enable_unit ModemManager.service
 
 for unit in pipewire.socket pipewire-pulse.socket wireplumber.service \
-            xdg-user-dirs.service \
-            obex.service mpris-proxy.service; do
-    if user_unit_exists "${unit}"; then
-        systemctl --global enable "${unit}"
-    else
-        echo "user unit ${unit} is not installed; skipping" >&2
-    fi
+  xdg-user-dirs.service \
+  obex.service mpris-proxy.service; do
+  if user_unit_exists "${unit}"; then
+    systemctl --global enable "${unit}"
+  else
+    echo "user unit ${unit} is not installed; skipping" >&2
+  fi
 done
 
 # tailscaled is what makes `tailscale up` work. socket-activated, so the unit
@@ -341,17 +512,17 @@ echo "::endgroup::"
 # Guarded, because the file is copied in by the Containerfile and must be there,
 # and failing the build when it is not is better than a silently live repository.
 if [[ -f /etc/yum.repos.d/utah.repo ]]; then
-	sed -i 's/^enabled=1$/enabled=0/' /etc/yum.repos.d/utah.repo
-	echo "::group:: Finalise the Utah package factory"
-	if grep -qE '^enabled=1' /etc/yum.repos.d/utah.repo; then
-		echo "::error::utah-packages is still enabled in /etc/yum.repos.d/utah.repo" >&2
-		exit 1
-	fi
-	echo "utah-packages: enabled=0 (the factory mount does not survive this phase)"
-	echo "::endgroup::"
+  sed -i 's/^enabled=1$/enabled=0/' /etc/yum.repos.d/utah.repo
+  echo "::group:: Finalise the Utah package factory"
+  if grep -qE '^enabled=1' /etc/yum.repos.d/utah.repo; then
+    echo "::error::utah-packages is still enabled in /etc/yum.repos.d/utah.repo" >&2
+    exit 1
+  fi
+  echo "utah-packages: enabled=0 (the factory mount does not survive this phase)"
+  echo "::endgroup::"
 else
-	echo "::error::/etc/yum.repos.d/utah.repo is missing; cannot close the package factory" >&2
-	exit 1
+  echo "::error::/etc/yum.repos.d/utah.repo is missing; cannot close the package factory" >&2
+  exit 1
 fi
 
 # Restore default glob behavior

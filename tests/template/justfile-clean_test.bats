@@ -87,7 +87,7 @@ run_recipe_without_sudo() {
 	mkdir -p "${SANDBOX}/build" "${SANDBOX}/custom"
 	touch "${SANDBOX}/build/20-packages-and-services.sh" \
 		"${SANDBOX}/custom/keep" \
-		"${SANDBOX}/Containerfile" \
+		"${SANDBOX}/Containerfile.workstation" \
 		"${SANDBOX}/README.md"
 
 	run_recipe clean
@@ -95,7 +95,7 @@ run_recipe_without_sudo() {
 
 	[ -f "${SANDBOX}/build/20-packages-and-services.sh" ]
 	[ -f "${SANDBOX}/custom/keep" ]
-	[ -f "${SANDBOX}/Containerfile" ]
+	[ -f "${SANDBOX}/Containerfile.workstation" ]
 	[ -f "${SANDBOX}/README.md" ]
 	[ -f "${SANDBOX}/Justfile" ]
 }

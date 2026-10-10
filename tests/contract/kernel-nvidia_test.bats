@@ -11,7 +11,7 @@
 # Run with: bats tests/contract/kernel-nvidia_test.bats
 
 REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
-CONTAINERFILE="${REPO_ROOT}/Containerfile"
+CONTAINERFILE="${REPO_ROOT}/Containerfile.workstation"
 
 # Line number of the first match for a pattern, or empty.
 line_of() {
