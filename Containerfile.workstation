@@ -59,7 +59,7 @@
 ARG PACKAGE_IMAGE=ghcr.io/projectbluefin/utah-packages
 ARG PACKAGE_IMAGE_SHA=sha256:0f04cff2dd0b085604ff3cd79d538ab14b97cbe356980f7d365a35dfc70c857b
 
-FROM ghcr.io/projectbluefin/utah-packages@sha256:d257e97a0057e37da47995bb142c180e2352960ab13bd44594215616a395b717 AS packages
+FROM ghcr.io/projectbluefin/utah-packages@sha256:b911f329edaeff76d2ca25fb9c156812f56e5dcb80fe5ccf3162ff12a08fe03a AS packages
 
 FROM ghcr.io/projectbluefin/common:latest@sha256:7e1836d65f2dd5534eb85488af3523f930adb2fb3424f30ad5b3b0c006ac78bc AS common
 FROM ghcr.io/ublue-os/brew:latest@sha256:2aaf87e3757466bc28d056505a651c7ca5c56fd28f6ff709b34f3f5dbc860e89 AS brew
